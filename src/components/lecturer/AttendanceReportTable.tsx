@@ -31,7 +31,7 @@ export default function AttendanceReportTable({ classInstance, records }: Attend
   const getMethodIcon = (method: AttendanceRecord['verificationMethod']) => {
     switch (method) {
       case 'Location': return <MapPin className="h-4 w-4 text-blue-500" />;
-      case 'QR': return <QrCode className="h-4 w-4 text-purple-500" />;
+      case 'QR': return <QrCode className="h-4 w-4 text-purple-500" />; // Using Lucide's QrCode
       case 'Manual': return <UserCheck className="h-4 w-4 text-orange-500" />;
       default: return null;
     }
@@ -78,35 +78,5 @@ export default function AttendanceReportTable({ classInstance, records }: Attend
     </div>
   );
 }
-
-// Minimal QrCode icon if not available in lucide-react (it is, but as an example)
-function QrCode(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect width="5" height="5" x="3" y="3" rx="1" />
-      <rect width="5" height="5" x="16" y="3" rx="1" />
-      <rect width="5" height="5" x="3" y="16" rx="1" />
-      <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
-      <path d="M21 21v.01" />
-      <path d="M12 7v3a2 2 0 0 1-2 2H7" />
-      <path d="M3 12h.01" />
-      <path d="M12 3h.01" />
-      <path d="M12 16v.01" />
-      <path d="M16 12h.01" />
-      <path d="M21 12v.01" />
-      <path d="M12 21v-3a2 2 0 0 0-2-2H7" />
-      <path d="M7 21h.01" />
-    </svg>
-  );
-}
+// The local SVG icon component QrCode was removed as lucide-react provides QrCode.
+// If a custom SVG was required, it should be named uniquely, e.g., QrCodeSvgIcon.
