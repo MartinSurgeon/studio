@@ -246,43 +246,33 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
     // Clear previous error
     setQrScanError(null);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          setQrScanError("Could not process image");
-          return;
-        }
-        
-        ctx.drawImage(img, 0, 0, img.width, img.height);
-        
-        try {
-          // Attempt to decode the QR code from the image
-          const qrScanner = new Html5Qrcode("qr-reader-hidden");
-          qrScanner.scanFile(file, /* showImage */ false)
-            .then(decodedText => {
-              handleQrScanSuccess(decodedText);
-              qrScanner.clear();
-            })
-            .catch(err => {
-              setQrScanError("Could not read QR code from image. Try a clearer photo or manual entry.");
-              qrScanner.clear();
-            });
-        } catch (error) {
-          setQrScanError("Failed to process image. Try manual entry instead.");
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.onerror = () => {
-      setQrScanError("Error reading file");
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Explicitly import Html5Qrcode to avoid reference issues
+      import('html5-qrcode').then(({ Html5Qrcode }) => {
+        const qrScanner = new Html5Qrcode("qr-reader-hidden");
+        qrScanner.scanFile(file, /* showImage */ false)
+          .then(decodedText => {
+            handleQrScanSuccess(decodedText);
+            qrScanner.clear();
+          })
+          .catch(err => {
+            setQrScanError("Could not read QR code from image. Try a clearer photo or manual entry.");
+            console.error("QR scan error:", err);
+            qrScanner.clear();
+          });
+      }).catch(err => {
+        setQrScanError("Could not load QR scanner. Try manual entry instead.");
+        console.error("Import error:", err);
+      });
+    } catch (error) {
+      setQrScanError("Failed to process image. Try manual entry instead.");
+      console.error("File processing error:", error);
+    }
+    
+    // Clear the file input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   if (userRole !== 'student') return null;
