@@ -8,7 +8,12 @@ import LoadingSpinner from '@/components/core/LoadingSpinner';
 
 export default function HomePage() {
   const { userRole, isLoading } = useAppContext();
-  const router = useRouter();
+  const nextRouter = useRouter();
+  
+  // Create a compatible router interface
+  const router = {
+    replace: (path: string) => nextRouter.push(path)
+  };
 
   useEffect(() => {
     if (!isLoading && userRole) {

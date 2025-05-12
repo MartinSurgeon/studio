@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog';
 import { PlusCircle, BookOpen, Users, Edit } from 'lucide-react';
 import CreateClassForm from './CreateClassForm';
 import ClassManagementCard from './ClassManagementCard';
@@ -66,7 +67,8 @@ export default function LecturerDashboard() {
                 <PlusCircle className="mr-2 h-5 w-5" /> Create New Class
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg" aria-describedby="create-class-form">
+              <DialogTitle>Create New Class</DialogTitle>
               <CreateClassForm onClassCreated={handleClassCreated} />
             </DialogContent>
           </Dialog>
@@ -125,8 +127,3 @@ export default function LecturerDashboard() {
     </div>
   );
 }
-
-// Minimal Dialog for CreateClassForm, actual ShadCN Dialog used
-function Dialog({ children }: { children: React.ReactNode }) { return <>{children}</>; }
-function DialogTrigger({ children }: { children: React.ReactNode }) { return <>{children}</>; }
-function DialogContent({ children }: { children: React.ReactNode; className?: string }) { return <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-lg">{children}</div></div>; }

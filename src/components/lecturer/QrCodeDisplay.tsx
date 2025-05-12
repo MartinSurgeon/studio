@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
+import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Class } from '@/lib/types';
 import { QR_CODE_EXPIRY_MS } from '@/config';
-import { RefreshCw, QrCodeIcon, Clock } from 'lucide-react';
+import { RefreshCw, QrCodeIcon, Clock, Copy } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 interface QrCodeDisplayProps {
@@ -18,9 +18,10 @@ interface QrCodeDisplayProps {
 export default function QrCodeDisplay({ classInstance, onUpdateClass }: QrCodeDisplayProps) {
   const [timeLeft, setTimeLeft] = useState(0);
   const { toast } = useToast();
+  const [showCopiedToast, setShowCopiedToast] = useState(false);
 
   const generateNewQrCode = useCallback(() => {
-    const newQrCodeValue = `geoattend_${classInstance.id}_${Date.now()}`;
+    const newQrCodeValue = `GA-${classInstance.id.substring(0, 8)}-${Math.floor(Date.now()/1000).toString(36)}`;
     const newQrCodeExpiry = Date.now() + QR_CODE_EXPIRY_MS;
     onUpdateClass({ ...classInstance, qrCodeValue: newQrCodeValue, qrCodeExpiry: newQrCodeExpiry });
     toast({ title: "QR Code Refreshed", description: "A new QR code has been generated." });
@@ -65,6 +66,15 @@ export default function QrCodeDisplay({ classInstance, onUpdateClass }: QrCodeDi
   const minutesLeft = Math.floor(timeLeft / 60000);
   const secondsLeft = Math.floor((timeLeft % 60000) / 1000);
 
+  const copyQrValue = () => {
+    if (classInstance.qrCodeValue) {
+      navigator.clipboard.writeText(classInstance.qrCodeValue);
+      toast({ title: "Copied!", description: "QR code value copied to clipboard" });
+      setShowCopiedToast(true);
+      setTimeout(() => setShowCopiedToast(false), 2000);
+    }
+  };
+
   if (!classInstance.active) {
     return (
       <Card className="shadow-lg">
@@ -78,10 +88,6 @@ export default function QrCodeDisplay({ classInstance, onUpdateClass }: QrCodeDi
     );
   }
   
-  const qrApiUrl = classInstance.qrCodeValue 
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(classInstance.qrCodeValue)}&format=svg`
-    : `https://picsum.photos/250/250?blur`; // Placeholder if no QR value
-
   return (
     <Card className="w-full max-w-sm text-center shadow-lg">
       <CardHeader>
@@ -89,23 +95,29 @@ export default function QrCodeDisplay({ classInstance, onUpdateClass }: QrCodeDi
         <CardDescription>Students can scan this code to mark attendance.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex justify-center items-center bg-muted p-4 rounded-lg aspect-square w-full max-w-[250px] mx-auto">
+        <div className="flex justify-center items-center bg-white p-6 rounded-lg aspect-square w-full max-w-[250px] mx-auto border-2 border-primary/10">
           {classInstance.qrCodeValue ? (
-             <Image 
-                src={qrApiUrl} 
-                alt="Attendance QR Code" 
-                width={250} 
-                height={250} 
-                data-ai-hint="qr code"
-                className="rounded-md"
-                unoptimized={true} // Necessary for external SVG from qrserver
-              />
+            <QRCodeSVG
+              value={classInstance.qrCodeValue}
+              size={250}
+              bgColor="#ffffff"
+              fgColor="#000000"
+              level="M"
+              includeMargin={true}
+            />
           ) : (
             <div className="w-[250px] h-[250px] flex items-center justify-center text-muted-foreground">
               <p>QR code will appear here.</p>
             </div>
           )}
         </div>
+
+        {classInstance.qrCodeValue && (
+          <div className="text-sm text-muted-foreground flex items-center justify-center cursor-pointer hover:text-foreground" onClick={copyQrValue}>
+            <span className="font-mono truncate max-w-[200px]">{classInstance.qrCodeValue}</span>
+            <Copy className="ml-2 h-4 w-4" />
+          </div>
+        )}
 
         {classInstance.qrCodeValue && timeLeft > 0 && (
           <div className="space-y-2">
