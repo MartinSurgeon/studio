@@ -1,8 +1,8 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
+  "buildCommand": "chmod +x vercel.sh && ./vercel.sh && npx next build",
+  "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
   "env": {
     "NEXT_PUBLIC_SUPABASE_URL": "https://wpkfgsgvkycyqmiptnmf.supabase.co",
