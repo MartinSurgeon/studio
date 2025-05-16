@@ -60,14 +60,25 @@ export default function QrCodeDisplay({ classInstance, onUpdateClass }: QrCodeDi
   }, [classInstance, onUpdateClass, toast]);
 
   useEffect(() => {
+    // Generate a new QR code if one doesn't exist or is expired
     if (!classInstance.qrCodeValue || !classInstance.qrCodeExpiry || classInstance.qrCodeExpiry <= Date.now()) {
       // Generate initial or if expired on load
       if (classInstance.active) { // Only generate if class is active
-         generateNewQrCode();
+        console.log("QrCodeDisplay: Generating new QR code for active class");
+        generateNewQrCode();
       }
     }
   }, [classInstance.active, classInstance.qrCodeValue, classInstance.qrCodeExpiry, generateNewQrCode]);
 
+  // Always generate a new QR code when the class becomes active
+  useEffect(() => {
+    if (classInstance.active) {
+      console.log("QrCodeDisplay: Class is active, ensuring QR code exists");
+      if (!classInstance.qrCodeValue || !classInstance.qrCodeExpiry || classInstance.qrCodeExpiry <= Date.now()) {
+        generateNewQrCode();
+      }
+    }
+  }, [classInstance.active, generateNewQrCode, classInstance.qrCodeValue, classInstance.qrCodeExpiry]);
 
   useEffect(() => {
     if (!classInstance.qrCodeExpiry || !classInstance.active) {

@@ -8,7 +8,7 @@ import type { Class, AttendanceRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import QrCodeDisplay from './QrCodeDisplay';
 import EditClassDialog from './EditClassDialog';
-import { PlayCircle, StopCircle, Edit3, Trash2, Eye, Users, MapPin, AlertTriangle } from 'lucide-react';
+import { PlayCircle, StopCircle, Edit3, Trash2, Eye, Users, MapPin, AlertTriangle, Calendar, QrCode, BookOpen, Clock } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { classService } from '@/lib/services/class.service';
 import { supabase } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 
 interface ClassManagementCardProps {
   classInstance: Class;
@@ -80,6 +81,14 @@ export default function ClassManagementCard({ classInstance, attendanceRecords, 
 
   const handleToggleActive = async () => {
     setIsUpdating(true);
+    console.log("======== Starting class toggle process ========");
+    console.log("Current class state:", {
+      id: classInstance.id,
+      name: classInstance.name,
+      active: classInstance.active,
+      hasQrCode: !!classInstance.qrCodeValue
+    });
+    
     try {
       console.log("Original class instance:", classInstance);
       
@@ -149,14 +158,45 @@ export default function ClassManagementCard({ classInstance, attendanceRecords, 
         lecturerId: currentUser.id
       };
       
-    if (updatedClass.active) {
+      console.log("Updating class active state:", {
+        oldActive: classInstance.active,
+        newActive: updatedClass.active
+      });
+      
+      if (updatedClass.active) {
+        // When activating a class, set the start time and clear end time
         updatedClass.startTime = new Date().toISOString();
         updatedClass.endTime = undefined;
-    } else {
+        
+        // Generate a QR code value if none exists
+        if (!updatedClass.qrCodeValue) {
+          console.log("Generating QR code for newly activated class");
+          const timestamp = Date.now();
+          const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+          updatedClass.qrCodeValue = `CLASS_${classId}_${randomCode}_${timestamp}`;
+          
+          // Set expiry to 24 hours from now (or another appropriate value)
+          updatedClass.qrCodeExpiry = timestamp + 86400000; // 24 hours
+          console.log("Generated QR code:", {
+            value: updatedClass.qrCodeValue,
+            expiresAt: new Date(updatedClass.qrCodeExpiry).toISOString()
+          });
+        }
+      } else {
+        // When deactivating a class, set the end time
         updatedClass.endTime = new Date().toISOString();
+        // Clear QR code data when ending class
         updatedClass.qrCodeValue = undefined;
-      updatedClass.qrCodeExpiry = undefined;
-    }
+        updatedClass.qrCodeExpiry = undefined;
+      }
+      
+      console.log("Updated class object ready for saving:", {
+        id: updatedClass.id,
+        active: updatedClass.active,
+        hasQrCode: !!updatedClass.qrCodeValue,
+        startTime: updatedClass.startTime,
+        endTime: updatedClass.endTime || "undefined"
+      });
       
       console.log("Attempting to update class with ID:", classId);
       console.log("Updated class data:", updatedClass);
@@ -534,142 +574,222 @@ export default function ClassManagementCard({ classInstance, attendanceRecords, 
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-xl font-semibold">{classInstance.name}</CardTitle>
-            <CardDescription>ID: {classInstance.id}</CardDescription>
+            <CardDescription className="flex flex-col space-y-2">
+              <div className="flex items-center text-sm">
+                <Calendar className="h-4 w-4 mr-2 text-blue-500" />
+                <span>Created {new Date(classInstance.startTime).toLocaleDateString()}</span>
+              </div>
+              <div className="flex items-center text-sm">
+                <Clock className="h-4 w-4 mr-2 text-blue-500" />
+                <span>
+                  {classInstance.active ? (
+                    <span className="text-green-600">Currently in session</span>
+                  ) : (
+                    <span className="text-muted-foreground">Session ended</span>
+                  )}
+                </span>
+              </div>
+            </CardDescription>
           </div>
-          <Badge variant={classInstance.active ? 'default' : 'secondary'} className={classInstance.active ? 'bg-green-500 text-white' : ''}>
+          <Badge 
+            variant={classInstance.active ? 'default' : 'secondary'} 
+            className={cn(
+              "transition-colors duration-200",
+              classInstance.active ? 'bg-green-500 text-white hover:bg-green-600' : ''
+            )}
+          >
             {classInstance.active ? 'Active' : 'Inactive'}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center text-sm text-muted-foreground">
-          <Users className="mr-2 h-4 w-4" />
-          <span>{studentsInClass} student(s) attended</span>
-        </div>
-        {classInstance.location && (
-          <div className="flex items-center text-sm text-muted-foreground">
-            <MapPin className="mr-2 h-4 w-4 text-green-600" />
-            <span>Location set: {classInstance.location.latitude.toFixed(6)}, {classInstance.location.longitude.toFixed(6)}</span>
-            <span className="ml-2">(Threshold: {classInstance.distanceThreshold}m)</span>
+      <CardContent className="space-y-6">
+        {/* Attendance Statistics */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center text-sm font-medium">
+              <Users className="h-4 w-4 mr-2 text-blue-500" />
+              Attendance Overview
+            </div>
+            <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
+              <div>
+                <div className="text-2xl font-bold text-blue-700">{studentsInClass}</div>
+                <div className="text-sm text-blue-600">Students</div>
+              </div>
+              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <Users className="h-5 w-5 text-blue-500" />
+              </div>
+            </div>
           </div>
-        )}
-        {!classInstance.location && (
-           <div className="flex items-center text-sm text-muted-foreground">
-            <MapPin className="mr-2 h-4 w-4 text-orange-500" />
-            <span>No location set (QR only)</span>
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Created: {new Date(classInstance.startTime).toLocaleString()}
-          {classInstance.endTime && ` | Ended: ${new Date(classInstance.endTime).toLocaleString()}`}
-        </p>
-      </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row justify-between gap-2">
-        <div className="flex gap-2 flex-wrap">
-          <Button 
-            variant={classInstance.active ? 'destructive' : 'default'} 
-            size="sm" 
-            onClick={handleToggleActive}
-            disabled={isUpdating}
-          >
-            {isUpdating ? (
-              <>
-                <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-                {classInstance.active ? 'Ending...' : 'Starting...'}
-              </>
-            ) : (
-              <>
-            {classInstance.active ? <StopCircle className="mr-2 h-4 w-4" /> : <PlayCircle className="mr-2 h-4 w-4" />}
-            {classInstance.active ? 'End Class' : 'Start Class'}
-              </>
-            )}
-          </Button>
           
+          <div className="space-y-2">
+            <div className="flex items-center text-sm font-medium">
+              <MapPin className="h-4 w-4 mr-2 text-emerald-500" />
+              Verification Method
+            </div>
+            <div className={cn(
+              "p-3 rounded-lg flex items-center justify-between",
+              classInstance.location ? "bg-emerald-50" : "bg-orange-50"
+            )}>
+              <div>
+                <div className="text-sm font-medium">
+                  {classInstance.location ? (
+                    <span className="text-emerald-700">Location Enabled</span>
+                  ) : (
+                    <span className="text-orange-700">QR Code Only</span>
+                  )}
+                </div>
+                {classInstance.location && (
+                  <div className="text-xs text-emerald-600 mt-1">
+                    Threshold: {classInstance.distanceThreshold}m
+                  </div>
+                )}
+              </div>
+              <div className={cn(
+                "h-8 w-8 rounded-full flex items-center justify-center",
+                classInstance.location ? "bg-emerald-100" : "bg-orange-100"
+              )}>
+                {classInstance.location ? (
+                  <MapPin className="h-5 w-5 text-emerald-500" />
+                ) : (
+                  <QrCode className="h-5 w-5 text-orange-500" />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2">
+          {classInstance.active ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsQrModalOpen(true)}
+                className="flex-1"
+              >
+                <QrCode className="h-4 w-4 mr-2" />
+                Show QR Code
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleActive}
+                className="flex-1"
+              >
+                <StopCircle className="h-4 w-4 mr-2" />
+                End Class
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleToggleActive}
+              className="flex-1"
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <>
+                  <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <PlayCircle className="h-4 w-4 mr-2" />
+                  Start Class
+                </>
+              )}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
-            onClick={handleSetCurrentLocation}
-            disabled={isGettingLocation}
+            onClick={() => onViewReport(classInstance.id)}
+            className="flex-1"
           >
-            {isGettingLocation ? (
-              <>
-                <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-                Getting Location...
-              </>
-            ) : (
-              <>
-                <MapPin className="mr-2 h-4 w-4" />
-                {classInstance.location ? 'Update Location' : 'Set Current Location'}
-              </>
-            )}
+            <BookOpen className="h-4 w-4 mr-2" />
+            View Report
           </Button>
-          
-          <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" disabled={!classInstance.active}>
-                <QrCodeIcon className="mr-2 h-4 w-4" /> QR Code
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md" aria-describedby="qr-code-description">
-              <DialogHeader>
-                <DialogTitle>QR Code for {classInstance.name}</DialogTitle>
-                <DialogDescription id="qr-code-description">
-                  Display this QR code for students to scan. It expires periodically.
-                </DialogDescription>
-              </DialogHeader>
-              <QrCodeDisplay classInstance={classInstance} onUpdateClass={handleQrUpdate} />
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsQrModalOpen(false)}>Close</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setIsEditDialogOpen(true)}
-          >
-            <Edit3 className="mr-2 h-4 w-4" /> Edit
-          </Button>
-          
-          <Button variant="ghost" size="sm" onClick={() => onViewReport(classInstance.id)}>
-            <Eye className="mr-2 h-4 w-4" /> View Report
-          </Button>
-          
-           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={isDeleting}>
-                {isDeleting ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-                ) : (
-                <Trash2 className="h-4 w-4" />
-                )}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the class
-                  "{classInstance.name}" and all its associated attendance records.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleDeleteClassItem}
-                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                  disabled={isDeleting}
+          <div className="flex gap-2 w-full">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditDialogOpen(true)}
+              className="flex-1"
+            >
+              <Edit3 className="h-4 w-4 mr-2" />
+              Edit Class
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive flex-1"
                 >
-                  {isDeleting ? 'Deleting...' : 'Delete Class'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Class
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Class</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{classInstance.name}"? This action cannot be undone
+                    and will permanently delete all attendance records for this class.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteClassItem}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
-      </CardFooter>
-      
+      </CardContent>
+
+      {/* QR Code Dialog */}
+      <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Class QR Code</DialogTitle>
+            <DialogDescription>
+              Display this QR code for students to scan. The code refreshes periodically for security.
+              {!classInstance.active && " Warning: Class is not active - start the class to enable attendance marking."}
+            </DialogDescription>
+          </DialogHeader>
+          <QrCodeDisplay classInstance={classInstance} onUpdateClass={handleQrUpdate} />
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-between">
+            <div className="mb-2 sm:mb-0">
+              {!classInstance.active && (
+                <Button 
+                  onClick={handleToggleActive}
+                  className="w-full sm:w-auto"
+                  disabled={isUpdating}
+                >
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  Start Class
+                </Button>
+              )}
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsQrModalOpen(false)}
+              className="w-full sm:w-auto"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Class Dialog */}
       <EditClassDialog 
         classInstance={classInstance}

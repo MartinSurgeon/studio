@@ -53,6 +53,7 @@ export default function AttendanceHistoryTable({ records, classes }: AttendanceH
         <TableHeader>
           <TableRow>
             <TableHead>Class Name</TableHead>
+            <TableHead>Lecturer</TableHead>
             <TableHead>Date & Time</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Method</TableHead>
@@ -63,26 +64,47 @@ export default function AttendanceHistoryTable({ records, classes }: AttendanceH
             sortedRecords.map((record) => {
               const classInfo = classes.find(c => c.id === record.classId);
               return (
-            <TableRow key={record.id}>
+                <TableRow key={record.id}>
                   <TableCell className="font-medium">
                     {classInfo?.name || 'Unknown Class'}
                   </TableCell>
-              <TableCell>{new Date(record.checkInTime).toLocaleString()}</TableCell>
-              <TableCell>
-                    <Badge variant={getStatusBadgeVariant(record.status)} className={record.status === 'Present' ? 'bg-green-100 text-green-800 border-green-300' : record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : ''}>
-                  {record.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="flex items-center">
-                 {getMethodIcon(record.verificationMethod)}
-                <span className="ml-2">{record.verificationMethod}</span>
-              </TableCell>
-            </TableRow>
+                  <TableCell className="text-muted-foreground">
+                    {classInfo?.lecturerName || 'Unknown Lecturer'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {new Date(record.checkInTime).toLocaleDateString()}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(record.checkInTime).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant={getStatusBadgeVariant(record.status)} 
+                      className={
+                        record.status === 'Present' 
+                          ? 'bg-green-100 text-green-800 border-green-300' 
+                          : record.status === 'Late' 
+                            ? 'bg-yellow-100 text-yellow-800 border-yellow-300' 
+                            : ''
+                      }
+                    >
+                      {record.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="flex items-center">
+                    {getMethodIcon(record.verificationMethod)}
+                    <span className="ml-2">{record.verificationMethod}</span>
+                  </TableCell>
+                </TableRow>
               );
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+              <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                 No attendance records found.
               </TableCell>
             </TableRow>

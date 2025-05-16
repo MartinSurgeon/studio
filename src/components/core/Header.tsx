@@ -115,7 +115,7 @@ export default function Header() {
                   <div className="flex items-center text-amber-500">
                     <AlertTriangle className="h-5 w-5 mr-1" />
                     <span className="text-xs hidden sm:inline">Multiple tabs</span>
-                  </div>
+            </div>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">Multiple GeoAttend tabs detected. Each tab has its own session. We recommend using only one tab at a time to avoid confusion.</p>
@@ -125,7 +125,7 @@ export default function Header() {
           )}
           
           {/* Testing mode switch */}
-          <div className="flex items-center space-x-2">
+           <div className="flex items-center space-x-2">
             <Switch
               id="testing-mode"
               checked={testingMode}
@@ -145,7 +145,7 @@ export default function Header() {
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
-                </Button>
+              </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel className="flex items-center gap-2">

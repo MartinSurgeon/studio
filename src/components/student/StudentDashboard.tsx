@@ -19,7 +19,10 @@ import {
   CheckCircle, 
   AlertTriangle,
   RefreshCw,
-  Map
+  Map,
+  Edit,
+  PieChart,
+  BookOpen
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -231,7 +234,7 @@ export default function StudentDashboard() {
   };
 
   const activeClasses = useMemo(() => {
-    return classes.filter(c => c.active && !c.endTime);
+    return classes.filter(c => c.active);
   }, [classes]);
   
   const filteredActiveClasses = useMemo(() => {
@@ -324,55 +327,122 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Header with Student Info */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold text-foreground">Student Dashboard</h1>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium">
-            Welcome, {user?.indexNumber || studentId}
-            {user?.displayName && studentId !== user.displayName && ` (${user.displayName})`}
-          </span>
-          <Avatar>
-            <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${studentInitial}`} />
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Student Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Track your attendance and manage your classes</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="flex flex-col items-end">
+            <span className="text-base font-semibold">
+              {user?.displayName || 'Student'}
+            </span>
+            <div className="flex items-center text-sm text-muted-foreground">
+              <User className="h-4 w-4 mr-1" />
+              <span>Index: {user?.indexNumber || studentId}</span>
+            </div>
+          </div>
+          <Avatar className="h-10 w-10">
+            <AvatarImage 
+              src={`https://api.dicebear.com/7.x/initials/svg?seed=${studentInitial}`}
+              className="bg-primary/10"
+            />
             <AvatarFallback>{studentInitial}</AvatarFallback>
           </Avatar>
         </div>
       </div>
 
-      {/* New feature notification */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="pt-4 pb-3">
-          <div className="flex items-start space-x-3">
-            <Map className="h-6 w-6 text-blue-500 flex-shrink-0 mt-1" />
-            <div>
-              <h3 className="font-medium text-blue-700 mb-1">New Feature: Route Tracking</h3>
-              <p className="text-sm text-blue-600 mb-2">
-                You can now view your route to class! When checking attendance via location, 
-                look for the "Show Route to Class" button to see a live map with walking directions.
-              </p>
+      {/* Quick Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Present</p>
+                <h3 className="text-2xl font-bold text-green-700">
+                  {studentStats.statusCounts?.Present || 0}
+                </h3>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-green-500" />
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Total Classes</p>
+                <h3 className="text-2xl font-bold text-blue-700">
+                  {studentStats.totalClassesAttended}
+                </h3>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <BookOpen className="h-6 w-6 text-blue-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-600">Attendance Rate</p>
+                <h3 className="text-2xl font-bold text-yellow-700">
+                  {studentStats.attendanceRate.toFixed(0)}%
+                </h3>
+              </div>
+              <div className="h-12 w-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                <Award className="h-6 w-6 text-yellow-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
-          <TabsTrigger value="activeClasses" className="py-3 text-base">
-            <ListChecks className="mr-2 h-5 w-5" /> Active Classes
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 mb-6">
+          <TabsTrigger value="activeClasses" className="py-3">
+            <ListChecks className="mr-2 h-5 w-5" />
+            <span className="hidden sm:inline">Active Classes</span>
+            <span className="sm:hidden">Active</span>
           </TabsTrigger>
-          <TabsTrigger value="statistics" className="py-3 text-base">
-            <BarChart className="mr-2 h-5 w-5" /> My Stats
+          <TabsTrigger value="statistics" className="py-3">
+            <BarChart className="mr-2 h-5 w-5" />
+            <span className="hidden sm:inline">Statistics</span>
+            <span className="sm:hidden">Stats</span>
           </TabsTrigger>
-          <TabsTrigger value="attendanceHistory" className="py-3 text-base">
-            <History className="mr-2 h-5 w-5" /> Attendance History
+          <TabsTrigger value="attendanceHistory" className="py-3">
+            <History className="mr-2 h-5 w-5" />
+            <span className="hidden sm:inline">Attendance History</span>
+            <span className="sm:hidden">History</span>
+          </TabsTrigger>
+          <TabsTrigger value="manageClasses" className="hidden lg:flex py-3">
+            <Edit className="mr-2 h-5 w-5" />
+            <span>Manage Classes</span>
+          </TabsTrigger>
+          <TabsTrigger value="statistics2" className="hidden lg:flex py-3">
+            <PieChart className="mr-2 h-5 w-5" />
+            <span>Analytics</span>
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="hidden lg:flex py-3">
+            <BookOpen className="mr-2 h-5 w-5" />
+            <span>Reports</span>
           </TabsTrigger>
         </TabsList>
 
+        {/* Active Classes Tab */}
         <TabsContent value="activeClasses">
-          <div className="mb-6 flex justify-between items-center">
-            <div className="relative max-w-md">
+          <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search classes..."
+                placeholder="Search classes by name or lecturer..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)} 
                 className="pl-9"
@@ -384,13 +454,19 @@ export default function StudentDashboard() {
               size="sm"
               onClick={() => refreshClassesData(true)}
               disabled={isRefreshing}
+              className="w-full sm:w-auto"
             >
               {isRefreshing ? (
-                <LoadingSpinner size="sm" className="mr-2" text="" />
+                <>
+                  <LoadingSpinner size="sm" className="mr-2" text="" />
+                  <span>Refreshing...</span>
+                </>
               ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <span>Refresh Classes</span>
+                </>
               )}
-              Refresh
             </Button>
           </div>
           
@@ -399,24 +475,26 @@ export default function StudentDashboard() {
               <LoadingSpinner text={isRefreshing ? "Refreshing classes..." : "Loading classes..."} />
             </div>
           ) : filteredActiveClasses.length === 0 ? (
-            <div className="text-center py-10">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-xl text-muted-foreground">No active classes found</p>
-              {searchQuery ? (
-                <p className="text-sm text-muted-foreground">Try a different search term</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">Classes created by lecturers will appear here</p>
-              )}
-            </div>
+            <Card className="bg-muted/50">
+              <CardContent className="flex flex-col items-center justify-center py-10">
+                <Users className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-xl font-medium text-muted-foreground">No active classes found</p>
+                {searchQuery ? (
+                  <p className="text-sm text-muted-foreground mt-1">Try a different search term</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground mt-1">Classes created by lecturers will appear here</p>
+                )}
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredActiveClasses.map(classItem => (
-                  <ActiveClassCard
-                    key={classItem.id}
+                <ActiveClassCard
+                  key={classItem.id}
                   classItem={classItem}
                   studentId={studentId}
-                    onMarkAttendance={handleMarkAttendance}
-                  />
+                  onMarkAttendance={handleMarkAttendance}
+                />
               ))}
             </div>
           )}
@@ -527,6 +605,54 @@ export default function StudentDashboard() {
 
         <TabsContent value="attendanceHistory">
           <AttendanceHistoryTable records={studentAttendanceHistory} classes={classes} />
+        </TabsContent>
+
+        <TabsContent value="manageClasses">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Class Management</CardTitle>
+                <CardDescription>View and manage your enrolled classes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-10 text-muted-foreground">
+                  Class management features coming soon
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="statistics2">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Analytics</CardTitle>
+                <CardDescription>View comprehensive attendance analytics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-10 text-muted-foreground">
+                  Detailed analytics features coming soon
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Attendance Reports</CardTitle>
+                <CardDescription>Generate and view attendance reports</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-10 text-muted-foreground">
+                  Report generation features coming soon
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

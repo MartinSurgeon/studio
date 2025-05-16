@@ -11,8 +11,8 @@ export default function TestConnectionPage() {
 
   useEffect(() => {
     async function testConnection() {
-      setLoading(true);
-      try {
+    setLoading(true);
+    try {
         const startTime = Date.now();
         const { data, error, count } = await supabase
           .from('users')
@@ -30,7 +30,7 @@ export default function TestConnectionPage() {
           url: process.env.NEXT_PUBLIC_SUPABASE_URL || 'Not available',
           keyAvailable: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
         });
-      } catch (error) {
+    } catch (error) {
         setResults({
           success: false,
           message: 'Unexpected error',
@@ -39,10 +39,10 @@ export default function TestConnectionPage() {
           url: process.env.NEXT_PUBLIC_SUPABASE_URL || 'Not available',
           keyAvailable: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
         });
-      } finally {
-        setLoading(false);
-      }
+    } finally {
+      setLoading(false);
     }
+  }
 
     testConnection();
   }, []);
@@ -58,10 +58,10 @@ export default function TestConnectionPage() {
 
       <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
         <h2 className="text-xl font-semibold mb-4">Connection Test Results</h2>
-        {loading ? (
+      {loading ? (
           <LoadingSpinner text="Testing connection..." />
         ) : (
-          <div>
+            <div>
             <div className={`p-4 mb-4 rounded-md ${results.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
               <p className="font-bold">{results.message}</p>
               <p className="text-sm">Response time: {results.timing}</p>
@@ -81,8 +81,8 @@ export default function TestConnectionPage() {
                 </pre>
               </div>
             )}
-          </div>
-        )}
+              </div>
+            )}
       </div>
 
       {!loading && hasNetworkIssue && (
@@ -106,12 +106,12 @@ export default function TestConnectionPage() {
         <Link href="/" className="bg-primary text-white px-4 py-2 rounded-md">
           Return to Home
         </Link>
-        <button 
+      <button 
           onClick={() => window.location.reload()}
           className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md"
         >
           Retest Connection
-        </button>
+      </button>
       </div>
     </div>
   );

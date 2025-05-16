@@ -12,7 +12,7 @@ const mapToClass = (row: Tables<'classes'>): Class => ({
   distanceThreshold: row.distance_threshold,
   startTime: row.start_time,
   endTime: row.end_time || undefined,
-  active: row.active,
+  active: row.active === true,
   lecturerId: row.lecturer_id,
   qrCodeValue: row.qr_code_value || undefined,
   qrCodeExpiry: row.qr_code_expiry || undefined,

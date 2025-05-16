@@ -4,6 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCap
 import type { AttendanceRecord, Class } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, QrCode, UserCheck } from 'lucide-react';
+import { userService } from '@/lib/services/user.service';
+import { useState, useEffect } from 'react';
 
 interface AttendanceReportTableProps {
   classInstance?: Class;
@@ -13,6 +15,37 @@ interface AttendanceReportTableProps {
 export default function AttendanceReportTable({ classInstance, records }: AttendanceReportTableProps) {
   // Add logging to help debug record issues
   console.log(`AttendanceReportTable: Rendering for class ${classInstance?.name || 'none'} with ${records.length} records`);
+  
+  // Add state to store student data
+  const [studentData, setStudentData] = useState<Record<string, { indexNumber?: string, displayName?: string }>>({});
+  
+  // Fetch student information when records change
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      if (!records.length) return;
+      
+      const newStudentData: Record<string, { indexNumber?: string, displayName?: string }> = {};
+      
+      // Use Promise.all to fetch all student data in parallel
+      await Promise.all(records.map(async (record) => {
+        try {
+          const student = await userService.getUserById(record.studentId);
+          if (student) {
+            newStudentData[record.studentId] = {
+              indexNumber: student.indexNumber,
+              displayName: student.displayName
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching student data:', error);
+        }
+      }));
+      
+      setStudentData(newStudentData);
+    };
+    
+    fetchStudentData();
+  }, [records]);
   
   if (!classInstance) {
     return <p className="text-muted-foreground">Select a class to view its report.</p>;
@@ -52,35 +85,89 @@ export default function AttendanceReportTable({ classInstance, records }: Attend
   return (
     <div className="rounded-lg border shadow-sm overflow-hidden">
       <Table>
-        <TableCaption>Attendance report for {classInstance.name}.</TableCaption>
+        <TableCaption>
+          <div className="flex flex-col items-center space-y-1">
+            <span className="font-medium">Attendance Report for {classInstance.name}</span>
+            <span className="text-sm text-muted-foreground">
+              {records.length} student{records.length !== 1 ? 's' : ''} recorded
+            </span>
+          </div>
+        </TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>Student Index Number</TableHead>
-            <TableHead>Check-in Time</TableHead>
+            <TableHead>Student Information</TableHead>
+            <TableHead>Check-in Details</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Method</TableHead>
-            {classInstance.location && <TableHead>Verified Location</TableHead>}
+            <TableHead>Verification</TableHead>
+            {classInstance.location && <TableHead>Location</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {records.map((record) => (
             <TableRow key={record.id}>
-              <TableCell className="font-medium">{record.studentId}</TableCell>
-              <TableCell>{new Date(record.checkInTime).toLocaleString()}</TableCell>
               <TableCell>
-                <Badge variant={getStatusBadgeVariant(record.status)} className={record.status === 'Present' ? 'bg-green-100 text-green-800 border-green-300' : record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : ''}>
+                <div className="flex flex-col">
+                  <span className="font-medium">
+                    {studentData[record.studentId]?.displayName || 'Unknown Student'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Index: {studentData[record.studentId]?.indexNumber || record.studentId}
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col">
+                  <span className="font-medium">
+                    {new Date(record.checkInTime).toLocaleDateString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(record.checkInTime).toLocaleTimeString()}
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge 
+                  variant={getStatusBadgeVariant(record.status)} 
+                  className={
+                    record.status === 'Present' 
+                      ? 'bg-green-100 text-green-800 border-green-300' 
+                      : record.status === 'Late' 
+                        ? 'bg-yellow-100 text-yellow-800 border-yellow-300' 
+                        : 'bg-red-100 text-red-800 border-red-300'
+                  }
+                >
                   {record.status}
                 </Badge>
               </TableCell>
-              <TableCell className="flex items-center">
-                {getMethodIcon(record.verificationMethod)}
-                <span className="ml-2">{record.verificationMethod}</span>
+              <TableCell>
+                <div className="flex items-center">
+                  {getMethodIcon(record.verificationMethod)}
+                  <div className="ml-2 flex flex-col">
+                    <span className="text-sm">{record.verificationMethod}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {record.verificationMethod === 'Location' ? 'GPS Verified' :
+                       record.verificationMethod === 'QR' ? 'QR Code Scan' :
+                       'Manual Check'}
+                    </span>
+                  </div>
+                </div>
               </TableCell>
               {classInstance.location && (
                 <TableCell>
-                  {record.verifiedLocation 
-                    ? `Lat: ${record.verifiedLocation.latitude.toFixed(4)}, Lon: ${record.verifiedLocation.longitude.toFixed(4)}` 
-                    : 'N/A'}
+                  {record.verifiedLocation ? (
+                    <div className="flex flex-col">
+                      <div className="flex items-center text-sm">
+                        <MapPin className="h-4 w-4 text-green-500 mr-1" />
+                        <span>Within range</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Lat: {record.verifiedLocation.latitude.toFixed(4)},
+                        Lon: {record.verifiedLocation.longitude.toFixed(4)}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">N/A</span>
+                  )}
                 </TableCell>
               )}
             </TableRow>

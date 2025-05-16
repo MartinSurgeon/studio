@@ -197,7 +197,7 @@ export const handleSupabaseError = (error: Error | unknown) => {
       console.error('Try restarting the server after updating environment variables');
     }
   } else {
-    console.error('Supabase error:', error);
+  console.error('Supabase error:', error);
   }
   
   // If it's an Error object, we can access the message

@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog';
-import { PlusCircle, BookOpen, Users, Edit, PieChart, Calendar, Clock } from 'lucide-react';
+import { PlusCircle, BookOpen, Users, Edit, PieChart, Calendar, Clock, QrCode, MapPin, UserCheck } from 'lucide-react';
 import CreateClassForm from './CreateClassForm';
 import ClassManagementCard from './ClassManagementCard';
 import AttendanceReportTable from './AttendanceReportTable';
@@ -85,9 +85,9 @@ export default function LecturerDashboard() {
         // Add new records for the specific class
         updatedRecords = [...otherRecords, ...newRecords];
       } else {
-        // Keep records from inactive classes and add the new records
-        const inactiveClassIds = classes.filter(cls => !cls.active).map(cls => cls.id);
-        const inactiveRecords = attendanceRecords.filter(rec => inactiveClassIds.includes(rec.classId));
+      // Keep records from inactive classes and add the new records
+      const inactiveClassIds = classes.filter(cls => !cls.active).map(cls => cls.id);
+      const inactiveRecords = attendanceRecords.filter(rec => inactiveClassIds.includes(rec.classId));
         updatedRecords = [...inactiveRecords, ...newRecords];
       }
       
@@ -525,10 +525,37 @@ export default function LecturerDashboard() {
                       const classInfo = classes.find(c => c.id === record.classId);
                       return (
                         <tr key={record.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">{record.studentId}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">{classInfo?.name || 'Unknown'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">{new Date(record.checkInTime).toLocaleString()}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">
+                                {record.studentId}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                Index Number
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">
+                                {classInfo?.name || 'Unknown'}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {classInfo?.active ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">
+                                {new Date(record.checkInTime).toLocaleDateString()}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(record.checkInTime).toLocaleTimeString()}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               record.status === 'Present' ? 'bg-green-100 text-green-800' :
                               record.status === 'Late' ? 'bg-yellow-100 text-yellow-800' :
@@ -537,7 +564,14 @@ export default function LecturerDashboard() {
                               {record.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">{record.verificationMethod}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {record.verificationMethod === 'QR' && <QrCode className="h-4 w-4 text-purple-500 mr-2" />}
+                              {record.verificationMethod === 'Location' && <MapPin className="h-4 w-4 text-blue-500 mr-2" />}
+                              {record.verificationMethod === 'Manual' && <UserCheck className="h-4 w-4 text-orange-500 mr-2" />}
+                              <span className="text-sm">{record.verificationMethod}</span>
+                            </div>
+                          </td>
                         </tr>
                       );
                     }) : (
