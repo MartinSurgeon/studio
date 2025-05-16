@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Your Account</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .wrapper {
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            padding: 40px;
+            border-top: 5px solid #4f46e5;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+        .logo {
+            max-height: 70px;
+            margin-bottom: 25px;
+        }
+        h2 {
+            color: #4f46e5;
+            font-weight: 700;
+            font-size: 28px;
+            margin: 0 0 15px 0;
+            letter-spacing: -0.5px;
+        }
+        .welcome-message {
+            font-size: 18px;
+            color: #4b5563;
+            margin-bottom: 5px;
+        }
+        p {
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #4b5563;
+        }
+        .button {
+            display: block;
+            width: max-content;
+            margin: 35px auto;
+            padding: 14px 32px;
+            background-color: #4f46e5;
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            border-radius: 8px;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.25);
+        }
+        .button:hover {
+            background-color: #4338ca;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(79, 70, 229, 0.3);
+        }
+        .help-text {
+            text-align: center;
+            margin: 30px 0 10px;
+            font-size: 15px;
+        }
+        .contact-support {
+            display: block;
+            text-align: center;
+            color: #4f46e5;
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 30px;
+        }
+        .contact-support:hover {
+            text-decoration: underline;
+        }
+        .footer {
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .social-links {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 8px;
+            color: #6b7280;
+            text-decoration: none;
+        }
+        .social-links a:hover {
+            color: #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="email-container">
+            <div class="header">
+                <!-- Replace with your logo if available -->
+                <!-- <img src="your-logo-url" alt="Trakzy Logo" class="logo"> -->
+                <h2>Welcome to Trakzy!</h2>
+                <p class="welcome-message">Your attendance tracking journey begins</p>
+            </div>
+            
+            <p>Hi there,</p>
+            
+            <p>Thanks for choosing Trakzy! We're thrilled to have you on board. Just one more step to get you started with effortless attendance tracking and class management.</p>
+            
+            <p>Please confirm your email address by clicking the button below:</p>
+            
+            <a href="{{ .ConfirmationURL }}" class="button">Activate My Account</a>
+            
+            <p style="text-align: center; font-size: 14px; color: #6b7280;">Button not working? <a href="{{ .ConfirmationURL }}" style="color: #4f46e5; text-decoration: none;">Click here instead</a></p>
+            
+            <p>After confirmation, you'll have immediate access to all Trakzy features. If you have any questions about getting started, check out our <a href="#" style="color: #4f46e5; text-decoration: none;">quick start guide</a>.</p>
+            
+            <p class="help-text">Need assistance?</p>
+            <a href="mailto:support@trakzy.com" class="contact-support">Contact our support team</a>
+            
+            <div class="social-links">
+                <a href="#">Twitter</a> • 
+                <a href="#">Facebook</a> • 
+                <a href="#">Instagram</a>
+            </div>
+            
+            <div class="footer">
+                <p>&copy; 2023 Trakzy. All rights reserved.</p>
+                <p>If you didn't create this account, please <a href="#" style="color: #4f46e5; text-decoration: none;">let us know</a>.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

@@ -11,13 +11,25 @@ interface AttendanceReportTableProps {
 }
 
 export default function AttendanceReportTable({ classInstance, records }: AttendanceReportTableProps) {
+  // Add logging to help debug record issues
+  console.log(`AttendanceReportTable: Rendering for class ${classInstance?.name || 'none'} with ${records.length} records`);
+  
   if (!classInstance) {
     return <p className="text-muted-foreground">Select a class to view its report.</p>;
   }
   
   if (records.length === 0) {
+    console.log(`AttendanceReportTable: No records found for class ${classInstance.id} (${classInstance.name})`);
     return <p className="text-muted-foreground">No attendance records found for {classInstance.name}.</p>;
   }
+
+  // Log the records for debugging
+  console.log(`AttendanceReportTable: Records found:`, records.map(r => ({ 
+    id: r.id, 
+    studentId: r.studentId, 
+    status: r.status, 
+    time: new Date(r.checkInTime).toLocaleString() 
+  })));
 
   const getStatusBadgeVariant = (status: AttendanceRecord['status']) => {
     switch (status) {
@@ -43,7 +55,7 @@ export default function AttendanceReportTable({ classInstance, records }: Attend
         <TableCaption>Attendance report for {classInstance.name}.</TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>Student ID</TableHead>
+            <TableHead>Student Index Number</TableHead>
             <TableHead>Check-in Time</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Method</TableHead>

@@ -20,11 +20,43 @@ export default function QrCodeDisplay({ classInstance, onUpdateClass }: QrCodeDi
   const { toast } = useToast();
   const [showCopiedToast, setShowCopiedToast] = useState(false);
 
+  // Function to safely dispatch class updated event
+  const dispatchClassUpdatedEvent = (updatedClass: Class) => {
+    // Only run this on the client side
+    if (typeof window !== 'undefined') {
+      // Use requestAnimationFrame to ensure this runs after hydration
+      requestAnimationFrame(() => {
+        const classEvent = new CustomEvent('class-updated', {
+          detail: {
+            classId: updatedClass.id,
+            active: updatedClass.active,
+            qrUpdated: true
+          }
+        });
+        window.dispatchEvent(classEvent);
+        console.log('QrCodeDisplay: Dispatched class-updated event for', updatedClass.id);
+      });
+    }
+  };
+
   const generateNewQrCode = useCallback(() => {
-    const newQrCodeValue = `GA-${classInstance.id.substring(0, 8)}-${Math.floor(Date.now()/1000).toString(36)}`;
+    // Ensure we have a valid class ID to work with - it should be a UUID
+    // If it already looks like a QR code, extract the original ID
+    let classId = classInstance.id;
+    if (classId.startsWith('QRCODE_') && classId.includes('_')) {
+      console.warn('Attempted to use QR code as class ID in QrCodeDisplay, extracting original ID');
+      classId = classId.split('_')[1];
+    }
+    
+    // Generate QR code with the extracted or original ID
+    const newQrCodeValue = `QRCODE_${classId.substring(0, 8)}_${Math.floor(Date.now()/1000).toString(36)}`;
     const newQrCodeExpiry = Date.now() + QR_CODE_EXPIRY_MS;
-    onUpdateClass({ ...classInstance, qrCodeValue: newQrCodeValue, qrCodeExpiry: newQrCodeExpiry });
+    const updatedClass = { ...classInstance, qrCodeValue: newQrCodeValue, qrCodeExpiry: newQrCodeExpiry };
+    onUpdateClass(updatedClass);
     toast({ title: "QR Code Refreshed", description: "A new QR code has been generated." });
+    
+    // Notify students about class update with new QR code
+    dispatchClassUpdatedEvent(updatedClass);
   }, [classInstance, onUpdateClass, toast]);
 
   useEffect(() => {

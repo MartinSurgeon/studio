@@ -6,23 +6,25 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import type { Class, GeoLocation, AttendanceRecord } from '@/lib/types';
 import { useAppContext } from '@/contexts/AppContext';
-import { STUDENT_MOCK_ID } from '@/config';
 import { verifyLocation, type VerifyLocationInput, type VerifyLocationOutput } from '@/ai/flows/verify-location';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from '@/components/ui/input';
 import LoadingSpinner from '@/components/core/LoadingSpinner';
-import { MapPin, QrCodeIcon, CheckCircle, XCircle, AlertTriangle, Info, Upload } from 'lucide-react';
+import { MapPin, QrCodeIcon, CheckCircle, XCircle, AlertTriangle, Info, Upload, Map } from 'lucide-react';
 import QrScanner from './QrScanner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { attendanceService } from '@/lib/services/attendance.service';
+import StudentRouteMap from './StudentRouteMap';
 
 interface ActiveClassCardProps {
-  classInstance: Class;
+  classItem: Class;
+  studentId: string;
   onMarkAttendance: (record: AttendanceRecord) => void;
-  existingAttendance?: AttendanceRecord;
 }
 
-export default function ActiveClassCard({ classInstance, onMarkAttendance, existingAttendance }: ActiveClassCardProps) {
-  const { testingMode, userRole } = useAppContext();
+export default function ActiveClassCard({ classItem, studentId, onMarkAttendance }: ActiveClassCardProps) {
+  const { testingMode } = useAppContext();
   const { toast } = useToast();
   const [isVerifyingLocation, setIsVerifyingLocation] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -33,25 +35,117 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationFetchAttempted, setLocationFetchAttempted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [hasExistingAttendance, setHasExistingAttendance] = useState<AttendanceRecord | null>(null);
+  const [attendanceChecked, setAttendanceChecked] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [showRouteMap, setShowRouteMap] = useState(false);
 
   useEffect(() => {
-    if (classInstance.location && !existingAttendance) {
+    const checkAttendance = async () => {
+      // Skip if we've already checked or if missing required info
+      if (attendanceChecked || !studentId || !classItem.id) return;
+      
+      try {
+        console.log(`ActiveClassCard: Checking attendance for student ${studentId} in class ${classItem.id}`);
+        setAttendanceChecked(true); // Mark as checked to prevent loops
+        
+        // Check for student-specific attendance records, using test mode if needed
+        const studentRecords = await attendanceService.getAttendanceRecords({ 
+          studentId,
+          classId: classItem.id
+        }, testingMode);
+        
+        if (studentRecords.length > 0) {
+          console.log(`ActiveClassCard: Student has existing attendance record`);
+          setHasExistingAttendance(studentRecords[0]); // Store the actual record
+          return;
+        }
+        
+        // If no student records found and we're not in test mode, check for device-specific records
+        if (!testingMode) {
+          // This handles cases where a different student used the same device
+          const deviceId = localStorage.getItem('geoattend-device-id');
+          if (deviceId) {
+            // We can't directly query by deviceId using the service, so we'll just warn the user in the UI when they try to submit
+            console.log(`ActiveClassCard: Student has no attendance record`);
+            setHasExistingAttendance(null);
+          } else {
+            console.log(`ActiveClassCard: No device ID found, assuming first use`);
+            setHasExistingAttendance(null);
+          }
+        } else {
+          console.log(`ActiveClassCard: No attendance record found in test mode`);
+          setHasExistingAttendance(null);
+        }
+      } catch (error) {
+        console.error('ActiveClassCard: Error checking attendance:', error);
+        setAttendanceChecked(true); // Mark as checked even if there was an error
+        setHasExistingAttendance(null);
+      }
+    };
+    
+    checkAttendance();
+  }, [studentId, classItem.id, testingMode, attendanceChecked]);
+
+  useEffect(() => {
+    // Only attempt to get location if class has location, user doesn't have attendance,
+    // and we haven't already tried fetching location
+    if (classItem.location && !hasExistingAttendance && !locationFetchAttempted && !currentLocation) {
+      console.log('ActiveClassCard: Fetching user location for verification');
       getUserLocation();
     }
-  }, [classInstance.location, existingAttendance]);
+  }, [classItem.location, hasExistingAttendance, locationFetchAttempted, currentLocation]);
 
   const getUserLocation = () => {
     if (!navigator.geolocation) {
       setLocationError("Geolocation is not supported by your browser");
+      setLocationFetchAttempted(true);
+      toast({ 
+        title: "Location Not Supported", 
+        description: "Your browser doesn't support geolocation. Please try another device or browser.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    // Check if browser is in secure context
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      setLocationError("Geolocation requires a secure connection (HTTPS)");
+      setLocationFetchAttempted(true);
+      toast({ 
+        title: "Secure Connection Required", 
+        description: "Location services require a secure (HTTPS) connection.", 
+        variant: "destructive" 
+      });
       return;
     }
 
     setIsGettingLocation(true);
     setLocationError(null);
+    setLocationFetchAttempted(true); // Mark as attempted to prevent loops
+
+    try {
+      console.log('ActiveClassCard: Requesting user geolocation');
+      
+      // Set a timeout to handle cases where geolocation silently fails
+      const timeoutId = setTimeout(() => {
+        if (isGettingLocation) {
+          setIsGettingLocation(false);
+          setLocationError("Location request timed out. Your browser may have blocked location access.");
+          toast({ 
+            title: "Location Timeout", 
+            description: "Couldn't get your location in time. Please check your permissions or try another device.", 
+            variant: "destructive" 
+          });
+        }
+      }, 20000); // 20 second timeout
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+          clearTimeout(timeoutId);
+          console.log('ActiveClassCard: Got user location successfully');
         const userLocation: GeoLocation = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -61,6 +155,8 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
         setIsGettingLocation(false);
       },
       (error) => {
+          clearTimeout(timeoutId);
+          console.error('ActiveClassCard: Error getting location:', error);
         setIsGettingLocation(false);
         let errorMessage = "Unable to retrieve your location";
         
@@ -69,45 +165,213 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
             errorMessage = "Location permission denied. Please enable it in your browser settings.";
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information is unavailable.";
+              errorMessage = "Location information is unavailable on this device or browser.";
             break;
           case error.TIMEOUT:
             errorMessage = "The request to get your location timed out.";
             break;
+            default:
+              errorMessage = `Location error (${error.code}): ${error.message || "Unknown error"}`;
         }
         
         setLocationError(errorMessage);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+          toast({ 
+            title: "Location Error", 
+            description: errorMessage, 
+            variant: "destructive" 
+          });
+        },
+        { 
+          enableHighAccuracy: true, 
+          timeout: 15000, 
+          maximumAge: 0 
+        }
+      );
+    } catch (ex) {
+      console.error('ActiveClassCard: Exception in geolocation API:', ex);
+      setIsGettingLocation(false);
+      const errorMessage = "Error accessing location services. Please check your browser settings.";
+      setLocationError(errorMessage);
+      toast({ 
+        title: "Location Error", 
+        description: "Failed to access your device's location services. Please check your permissions.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  // Function to safely dispatch attendance event
+  const dispatchAttendanceEvent = (record: AttendanceRecord) => {
+    // Only run this on the client side
+    if (typeof window !== 'undefined') {
+      // Use requestAnimationFrame to ensure this runs after hydration
+      requestAnimationFrame(() => {
+        // Local event for current tab
+        const attendanceEvent = new CustomEvent('attendance-marked', {
+          detail: {
+            classId: record.classId,
+            studentId: record.studentId,
+            record: record
+          }
+        });
+        window.dispatchEvent(attendanceEvent);
+        
+        // Also broadcast to other tabs using BroadcastChannel API
+        try {
+          // Create a broadcast channel for sending the message to other tabs
+          const broadcastChannel = new BroadcastChannel('geoattend-attendance');
+          
+          // Send the message
+          broadcastChannel.postMessage({
+            type: 'attendance-marked',
+            classId: record.classId,
+            studentId: record.studentId,
+            timestamp: Date.now()
+          });
+          
+          // Close after a short delay to ensure message is sent
+          setTimeout(() => {
+            broadcastChannel.close();
+            console.log('ActiveClassCard: Closed BroadcastChannel after sending');
+          }, 1000);
+          
+          console.log('ActiveClassCard: Broadcast attendance-marked event to all tabs', record.classId);
+        } catch (error) {
+          console.error('ActiveClassCard: Failed to broadcast attendance event', error);
+        }
+        
+        console.log('ActiveClassCard: Dispatched attendance-marked event', record.classId);
+      });
+    }
   };
 
   const handleLocationCheckIn = async () => {
-    if (!classInstance.location) {
+    if (!classItem.location) {
       toast({ title: "Location Error", description: "This class does not support location-based check-in.", variant: "destructive" });
       return;
+    }
+    
+    if (!studentId) {
+      toast({ 
+        title: "Index Number Required", 
+        description: "Your student index number is required to mark attendance. Please set up your profile first.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    // Check if student already has an attendance record for this class BEFORE doing anything else
+    try {
+      const existingRecords = await attendanceService.getAttendanceRecords({ 
+        classId: classItem.id, 
+        studentId: studentId
+      });
+      
+      if (existingRecords && existingRecords.length > 0) {
+        setHasExistingAttendance(existingRecords[0]);
+        toast({ 
+          title: "Already Checked In", 
+          description: "You have already recorded attendance for this class.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking existing attendance:", error);
     }
     
     setIsVerifyingLocation(true);
     setVerificationResult(null);
 
+    // Stronger timeout to guarantee the verification process stops
+    setTimeout(() => {
+      if (isVerifyingLocation) {
+        console.log("Force-stopping verification process after timeout");
+        setIsVerifyingLocation(false);
+        setVerificationResult({
+          success: false, 
+          message: "Verification timed out. Please try again or use QR code instead."
+        });
+        toast({ 
+          title: "Verification Timeout", 
+          description: "Location verification is taking too long. Please try using QR code instead.", 
+          variant: "destructive" 
+        });
+      }
+    }, 15000); // Shorter 15-second timeout for better user experience
+
     if (testingMode) {
-      setTimeout(() => { // Simulate network delay
-        const mockUserLocation: GeoLocation = { latitude: classInstance.location!.latitude, longitude: classInstance.location!.longitude };
-        const attendanceRecord: AttendanceRecord = {
-          id: `att_${Date.now()}`,
-          classId: classInstance.id,
-          studentId: STUDENT_MOCK_ID, // Replace with actual student ID if available
+      try {
+        console.log("Testing Mode: Creating attendance record with mock location");
+        
+        // EMERGENCY FIX: Skip verification entirely and create record with class location
+        const mockUserLocation: GeoLocation = { 
+          latitude: classItem.location!.latitude, 
+          longitude: classItem.location!.longitude 
+        };
+        
+        // Create the attendance record using the service in testing mode (bypass all checks)
+        const newRecord: Omit<AttendanceRecord, 'id'> = {
+          classId: classItem.id,
+          studentId: studentId,
           checkInTime: new Date().toISOString(),
-          status: 'Present', // Implement late logic if needed
+          status: 'Present',
           verificationMethod: 'Location',
           verifiedLocation: mockUserLocation,
         };
-        onMarkAttendance(attendanceRecord);
-        setVerificationResult({success: true, message: "Attendance marked (Testing Mode)."});
-        toast({ title: "Attendance Marked (Testing)", description: `Successfully checked in for ${classInstance.name}.` });
+        
+        console.log("Testing Mode: About to save attendance record:", {
+          classId: classItem.id,
+          studentId,
+          verificationMethod: 'Location',
+          hasLocation: !!mockUserLocation
+        });
+        
+        // Use the test mode parameter to avoid database errors
+        const savedRecord = await attendanceService.createAttendanceRecord(newRecord, true);
+        
+        if (savedRecord) {
+          console.log("Testing Mode: Successfully saved attendance record:", {
+            id: savedRecord.id,
+            classId: savedRecord.classId,
+            studentId: savedRecord.studentId
+          });
+          
+          onMarkAttendance(savedRecord);
+          setHasExistingAttendance(savedRecord);
+          setVerificationResult({success: true, message: "Attendance marked (Testing Mode)."});
+          toast({ 
+            title: "Attendance Marked (Testing)", 
+            description: `Successfully checked in for ${classItem.name}.` 
+          });
+          
+          // Trigger any parent component refresh if needed
+          dispatchAttendanceEvent(savedRecord);
+        } else {
+          console.error("Testing Mode: Failed to save attendance record - null result returned");
+          throw new Error("Failed to save attendance record in testing mode");
+        }
+      } catch (error) {
+        console.error("Testing mode attendance error:", error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        
+        if (errorMsg.includes('already marked')) {
+          toast({ 
+            title: "Already Checked In", 
+            description: "You have already recorded attendance for this class.", 
+            variant: "destructive" 
+          });
+        } else {
+          toast({ 
+            title: "Attendance Error", 
+            description: "Failed to record your attendance in testing mode.", 
+            variant: "destructive" 
+          });
+        }
+        setVerificationResult({success: false, message: "Failed to mark attendance in testing mode"});
+      } finally {
         setIsVerifyingLocation(false);
-      }, 1000);
+      }
       return;
     }
 
@@ -138,70 +402,163 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
       }
     }
 
-    const verificationInput: VerifyLocationInput = {
-      userLatitude: userLocation.latitude,
-      userLongitude: userLocation.longitude,
-      lectureLatitude: classInstance.location.latitude,
-      lectureLongitude: classInstance.location.longitude,
-      distanceThreshold: classInstance.distanceThreshold,
-    };
-
     try {
-      const result: VerifyLocationOutput = await verifyLocation(verificationInput);
-      if (result.isLocationValid) {
-        const attendanceRecord: AttendanceRecord = {
-          id: `att_${Date.now()}`,
-          classId: classInstance.id,
-          studentId: STUDENT_MOCK_ID,
-          checkInTime: new Date().toISOString(),
-          status: 'Present',
-          verificationMethod: 'Location',
-          verifiedLocation: userLocation,
-        };
-        onMarkAttendance(attendanceRecord);
-        setVerificationResult({success: true, message: `Location verified! Distance: ${result.distance.toFixed(0)}m. ${result.message}`});
-        toast({ title: "Attendance Marked", description: `Successfully checked in for ${classInstance.name}.` });
+      // Use the attendance service to mark attendance with location
+      console.log(`ActiveClassCard: Marking attendance for student ${studentId} in class ${classItem.id} with location`);
+      console.log(`ActiveClassCard: User location: ${JSON.stringify(userLocation)}`);
+      console.log(`ActiveClassCard: Class location: ${JSON.stringify(classItem.location)}`);
+      
+      const result = await attendanceService.markAttendanceWithLocation(
+        classItem.id,
+        studentId,
+        userLocation
+      );
+      
+      if (result.success && result.record) {
+        setVerificationResult({
+          success: true, 
+          message: result.message || "Attendance successfully recorded!"
+        });
+        onMarkAttendance(result.record);
+        toast({ 
+          title: "Attendance Marked", 
+          description: result.message || `Successfully checked in for ${classItem.name}.` 
+        });
+        // Update the hasExistingAttendance state
+        setHasExistingAttendance(result.record);
+        
+        // Trigger any parent component refresh if needed
+        dispatchAttendanceEvent(result.record);
       } else {
-        setVerificationResult({success: false, message: `Location mismatch. Distance: ${result.distance.toFixed(0)}m. ${result.message}`});
-        toast({ title: "Location Verification Failed", description: result.message, variant: "destructive" });
+        // Handle the out-of-range case with specific feedback
+        if (result.details && !result.details.withinRange) {
+          const { distance, threshold } = result.details;
+          
+          // Create a more detailed error message with distance information
+          const errorMessage = `You are approximately ${distance}m away from class. 
+                                Maximum allowed distance is ${threshold}m.`;
+          
+          setVerificationResult({
+            success: false, 
+            message: errorMessage
+          });
+          
+          toast({ 
+            title: "Too Far From Class", 
+            description: `You need to be within ${threshold}m of the class location. 
+                         You are currently ${distance}m away.`, 
+            variant: "destructive" 
+          });
+        } else {
+          // Handle other error cases
+          setVerificationResult({
+            success: false, 
+            message: result.message || "Failed to verify your location"
+          });
+          toast({ 
+            title: "Location Verification Failed", 
+            description: result.message || "Could not verify your location for attendance", 
+            variant: "destructive" 
+          });
+        }
       }
     } catch (error) {
-      console.error("AI Location verification error:", error);
-      setVerificationResult({success: false, message: "Error verifying location. Please try again."});
-      toast({ title: "Verification Error", description: "Could not verify location.", variant: "destructive" });
+      console.error("Attendance recording error:", error);
+      setVerificationResult({success: false, message: "Error recording attendance. Please try again."});
+      toast({ title: "Attendance Error", description: "Could not save your attendance record.", variant: "destructive" });
     } finally {
       setIsVerifyingLocation(false);
     }
   };
 
-  const handleQrScanSuccess = (decodedText: string) => {
-    if (!classInstance.qrCodeValue || !classInstance.qrCodeExpiry) {
+  const handleQrScanSuccess = async (decodedText: string) => {
+    if (!classItem.qrCodeValue || !classItem.qrCodeExpiry) {
       toast({ title: "QR Error", description: "QR code not available for this class.", variant: "destructive" });
       return;
     }
     
-    if (Date.now() > classInstance.qrCodeExpiry) {
+    if (!studentId) {
+      toast({ 
+        title: "Index Number Required", 
+        description: "Your student index number is required to mark attendance. Please set up your profile first.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    if (Date.now() > classItem.qrCodeExpiry) {
       toast({ title: "QR Expired", description: "The QR code for this class has expired.", variant: "destructive" });
       setVerificationResult({success: false, message: "QR Code Expired."});
       return;
     }
-    
-    if (decodedText === classInstance.qrCodeValue) {
-      const attendanceRecord: AttendanceRecord = {
-        id: `att_${Date.now()}`,
-        classId: classInstance.id,
-        studentId: STUDENT_MOCK_ID,
-        checkInTime: new Date().toISOString(),
-        status: 'Present',
-        verificationMethod: 'QR',
-      };
-      onMarkAttendance(attendanceRecord);
-      setVerificationResult({success: true, message: "QR Code verified successfully."});
-      toast({ title: "Attendance Marked", description: `Successfully checked in for ${classInstance.name} via QR code.` });
-      setIsQrModalOpen(false);
+
+    if (decodedText === classItem.qrCodeValue) {
+      try {
+        // Get any existing records for this class/student
+        const existingRecords = await attendanceService.getAttendanceRecords({ 
+          classId: classItem.id, 
+          studentId: studentId
+        }, testingMode);
+        
+        if (existingRecords && existingRecords.length > 0) {
+          toast({ 
+            title: "Already Checked In", 
+            description: "You have already recorded attendance for this class.", 
+            variant: "destructive" 
+          });
+          setHasExistingAttendance(existingRecords[0]);
+          return;
+        }
+        
+        // Create a new attendance record
+        const newRecord: Omit<AttendanceRecord, 'id'> = {
+          classId: classItem.id,
+          studentId: studentId,
+          checkInTime: new Date().toISOString(),
+          status: 'Present', // Could add logic to set 'Late' based on class start time
+          verificationMethod: 'QR',
+          // The deviceId will be added by the attendance service
+        };
+        
+        console.log(`ActiveClassCard: Creating attendance record for student ${studentId} in class ${classItem.id} via QR`);
+        const savedRecord = await attendanceService.createAttendanceRecord(newRecord, testingMode);
+        
+        if (savedRecord) {
+          onMarkAttendance(savedRecord);
+          setHasExistingAttendance(savedRecord);
+          toast({ 
+            title: "Attendance Marked", 
+            description: `Successfully checked in for ${classItem.name}.` 
+          });
+          setIsQrModalOpen(false);
+          
+          // Trigger any parent component refresh if needed
+          dispatchAttendanceEvent(savedRecord);
+        } else {
+          throw new Error("Failed to save attendance record");
+        }
+      } catch (error) {
+        console.error("QR attendance error:", error);
+        
+        // Check if error message indicates already marked from device
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        if (errorMsg.includes('already marked from this device')) {
+          toast({ 
+            title: "Already Checked In", 
+            description: "Attendance has already been marked from this device.", 
+            variant: "destructive" 
+          });
+        } else {
+          toast({ 
+            title: "Attendance Error", 
+            description: "Failed to record your attendance. Please try again.", 
+            variant: "destructive" 
+          });
+        }
+      }
     } else {
       setVerificationResult({success: false, message: "Invalid QR Code."});
-      toast({ title: "QR Verification Failed", description: "The scanned QR code is incorrect.", variant: "destructive" });
+      toast({ title: "Invalid QR Code", description: "The scanned QR code does not match the expected value.", variant: "destructive" });
     }
   };
 
@@ -209,30 +566,93 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
     setQrScanError(error);
   };
 
-  const handleQrCheckIn = () => {
-    if (!classInstance.qrCodeValue || !classInstance.qrCodeExpiry) {
+  const handleQrCheckIn = async () => {
+    if (!classItem.qrCodeValue || !classItem.qrCodeExpiry) {
       toast({ title: "QR Error", description: "QR code not available for this class.", variant: "destructive" });
       return;
     }
-    if (Date.now() > classInstance.qrCodeExpiry) {
+    
+    if (!studentId) {
+      toast({ 
+        title: "Index Number Required", 
+        description: "Your student index number is required to mark attendance. Please set up your profile first.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    if (Date.now() > classItem.qrCodeExpiry) {
       toast({ title: "QR Expired", description: "The QR code for this class has expired.", variant: "destructive" });
       setVerificationResult({success: false, message: "QR Code Expired."});
       return;
     }
-    if (qrCodeInput === classInstance.qrCodeValue) {
-      const attendanceRecord: AttendanceRecord = {
-        id: `att_${Date.now()}`,
-        classId: classInstance.id,
-        studentId: STUDENT_MOCK_ID,
-        checkInTime: new Date().toISOString(),
-        status: 'Present',
-        verificationMethod: 'QR',
-      };
-      onMarkAttendance(attendanceRecord);
-      setVerificationResult({success: true, message: "QR Code verified successfully."});
-      toast({ title: "Attendance Marked", description: `Successfully checked in for ${classInstance.name} via QR code.` });
-      setIsQrModalOpen(false);
-      setQrCodeInput('');
+    
+    if (qrCodeInput === classItem.qrCodeValue) {
+      try {
+        // Check for existing attendance records
+        const existingRecords = await attendanceService.getAttendanceRecords({ 
+          classId: classItem.id, 
+          studentId: studentId
+        });
+        
+        if (existingRecords && existingRecords.length > 0) {
+          toast({ 
+            title: "Already Checked In", 
+            description: "You have already recorded attendance for this class.", 
+            variant: "destructive" 
+          });
+          setHasExistingAttendance(existingRecords[0]);
+          return;
+        }
+        
+        // Create a new attendance record using the service
+        const newRecord: Omit<AttendanceRecord, 'id'> = {
+          classId: classItem.id,
+          studentId: studentId,
+          checkInTime: new Date().toISOString(),
+          status: 'Present',
+          verificationMethod: 'QR',
+        };
+        
+        // Save to database
+        const savedRecord = await attendanceService.createAttendanceRecord(newRecord);
+        
+        if (savedRecord) {
+          onMarkAttendance(savedRecord);
+          setHasExistingAttendance(savedRecord);
+          setVerificationResult({success: true, message: "QR Code verified successfully."});
+          toast({ 
+            title: "Attendance Marked", 
+            description: `Successfully checked in for ${classItem.name} via QR code.` 
+          });
+          setIsQrModalOpen(false);
+          setQrCodeInput('');
+          
+          // Trigger any parent component refresh if needed
+          dispatchAttendanceEvent(savedRecord);
+        } else {
+          throw new Error("Failed to save attendance record");
+        }
+      } catch (error) {
+        console.error("QR code attendance error:", error);
+        
+        // Check if error message indicates already marked from device
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        if (errorMsg.includes('already marked from this device')) {
+          toast({ 
+            title: "Already Checked In", 
+            description: "Attendance has already been marked from this device.", 
+            variant: "destructive" 
+          });
+        } else {
+          setVerificationResult({success: false, message: "Error saving attendance."});
+          toast({ 
+            title: "Attendance Error", 
+            description: "Failed to record your attendance. Please try again.", 
+            variant: "destructive" 
+          });
+        }
+      }
     } else {
       setVerificationResult({success: false, message: "Invalid QR Code."});
       toast({ title: "QR Verification Failed", description: "The scanned QR code is incorrect.", variant: "destructive" });
@@ -275,21 +695,134 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
     }
   };
 
-  if (userRole !== 'student') return null;
+  const handleManualQrSubmit = async () => {
+    if (!qrCodeInput || !classItem.qrCodeValue || !classItem.qrCodeExpiry) {
+      setQrError("Please enter a valid QR code value");
+      return;
+    }
+    
+    if (!studentId) {
+      toast({ 
+        title: "Index Number Required", 
+        description: "Your student index number is required to mark attendance. Please set up your profile first.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    if (Date.now() > classItem.qrCodeExpiry) {
+      setQrError("QR Code Expired");
+      return;
+    }
+    
+    if (qrCodeInput !== classItem.qrCodeValue) {
+      setQrError("Invalid QR Code value");
+      return;
+    }
+    
+    try {
+      // Get any existing records for this class/student
+      const existingRecords = await attendanceService.getAttendanceRecords({ 
+        classId: classItem.id, 
+        studentId: studentId
+      }, testingMode);
+      
+      if (existingRecords && existingRecords.length > 0) {
+        toast({ 
+          title: "Already Checked In", 
+          description: "You have already recorded attendance for this class.", 
+          variant: "destructive" 
+        });
+        setQrError("You have already marked attendance for this class");
+        return;
+      }
+      
+      // Create a new attendance record
+      const newRecord: Omit<AttendanceRecord, 'id'> = {
+        classId: classItem.id,
+        studentId: studentId,
+        checkInTime: new Date().toISOString(),
+        status: 'Present',
+        verificationMethod: 'QR',
+      };
+      
+      const savedRecord = await attendanceService.createAttendanceRecord(newRecord, testingMode);
+      
+      if (savedRecord) {
+        onMarkAttendance(savedRecord);
+        setHasExistingAttendance(savedRecord);
+        setVerificationResult({success: true, message: "QR Code verified successfully."});
+        toast({ 
+          title: "Attendance Marked", 
+          description: `Successfully checked in for ${classItem.name}.` 
+        });
+        setIsQrModalOpen(false);
+        setQrCodeInput('');
+        
+        // Trigger any parent component refresh if needed
+        dispatchAttendanceEvent(savedRecord);
+      } else {
+        throw new Error("Failed to save attendance record");
+      }
+    } catch (error) {
+      console.error("Manual QR attendance error:", error);
+      
+      // Check if error message indicates already marked from device
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes('already marked from this device')) {
+        toast({ 
+          title: "Already Checked In", 
+          description: "Attendance has already been marked from this device.", 
+          variant: "destructive" 
+        });
+      } else {
+        setVerificationResult({success: false, message: "Error saving attendance."});
+        toast({ 
+          title: "Attendance Error", 
+          description: "Failed to record your attendance. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+    }
+  };
 
-  if (existingAttendance) {
+  // Calculate distance between current location and class location
+  const calculateDistanceToClass = (): number | undefined => {
+    if (!currentLocation || !classItem.location) return undefined;
+    
+    const R = 6371e3; // Earth radius in meters
+    const φ1 = currentLocation.latitude * Math.PI / 180;
+    const φ2 = classItem.location.latitude * Math.PI / 180;
+    const Δφ = (classItem.location.latitude - currentLocation.latitude) * Math.PI / 180;
+    const Δλ = (classItem.location.longitude - currentLocation.longitude) * Math.PI / 180;
+
+    const a = 
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in meters
+  };
+  
+  // Update current location when new position is available from the map
+  const handleLocationUpdate = (newLocation: GeoLocation) => {
+    setCurrentLocation(newLocation);
+  };
+
+  if (hasExistingAttendance) {
     return (
        <Card className="shadow-md bg-green-50 border-green-200">
         <CardHeader>
-          <CardTitle className="text-xl font-semibold text-green-700">{classInstance.name}</CardTitle>
-          <CardDescription>Lecturer: {classInstance.lecturerId}</CardDescription>
+          <CardTitle className="text-xl font-semibold text-green-700">{classItem.name}</CardTitle>
+          <CardDescription>Lecturer: {classItem.lecturerId}</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center py-6">
             <CheckCircle className="h-10 w-10 text-green-500 mr-3" />
             <div>
                 <p className="font-semibold text-green-600">Attendance Marked!</p>
-                <p className="text-sm text-green-500">Checked in at: {new Date(existingAttendance.checkInTime).toLocaleTimeString()}</p>
-                <p className="text-sm text-green-500">Method: {existingAttendance.verificationMethod}</p>
+                <p className="text-sm text-green-500">Checked in at: {new Date(hasExistingAttendance.checkInTime).toLocaleTimeString()}</p>
+                <p className="text-sm text-green-500">Method: {hasExistingAttendance.verificationMethod}</p>
             </div>
         </CardContent>
       </Card>
@@ -297,13 +830,35 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
   }
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow">
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-200">
       <CardHeader>
-        <CardTitle className="text-xl font-semibold">{classInstance.name}</CardTitle>
-        <CardDescription>Lecturer: {classInstance.lecturerId}</CardDescription>
-        <CardDescription>Starts: {new Date(classInstance.startTime).toLocaleTimeString()}</CardDescription>
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-xl font-semibold">{classItem.name}</CardTitle>
+            <CardDescription className="text-sm">
+              Started: {new Date(classItem.startTime).toLocaleString()}
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+            Active
+          </Badge>
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {classItem.location && (
+          <div className="flex items-center text-sm">
+            <MapPin className="mr-2 h-4 w-4 text-green-600" />
+            <span>Location verification enabled</span>
+          </div>
+        )}
+        
+        {hasExistingAttendance && (
+          <div className="p-3 bg-green-50 rounded-md flex items-center text-green-700">
+            <CheckCircle className="mr-2 h-5 w-5" />
+            <span>Attendance already marked for this class!</span>
+          </div>
+        )}
+        
         {verificationResult && (
           <div className={`p-3 rounded-md mb-4 text-sm flex items-center ${verificationResult.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
             {verificationResult.success ? <CheckCircle className="h-5 w-5 mr-2" /> : <XCircle className="h-5 w-5 mr-2" />}
@@ -316,13 +871,18 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
         {isGettingLocation && <LoadingSpinner text="Getting your location..." />}
         
         {locationError && (
-          <div className="p-3 rounded-md mb-4 text-sm flex items-center bg-red-100 text-red-700">
-            <AlertTriangle className="h-5 w-5 mr-2" />
-            {locationError}
+          <div className="p-3 rounded-md mb-4 text-sm flex items-start bg-red-100 text-red-700">
+            <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+            <div>
+              <p>{locationError}</p>
+              <p className="text-xs mt-1">
+                If location doesn't work, try using QR code attendance instead.
+              </p>
+            </div>
           </div>
         )}
         
-        {currentLocation && classInstance.location && !isVerifyingLocation && !verificationResult && (
+        {currentLocation && classItem.location && !isVerifyingLocation && !verificationResult && (
           <div className="p-3 rounded-md mb-4 text-sm">
             <div className="flex items-center text-green-700 mb-1">
               <MapPin className="h-5 w-5 mr-2" />
@@ -334,22 +894,116 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
             </div>
           </div>
         )}
+
+        {/* Show distance information if we have both locations */}
+        {currentLocation && classItem.location && !isVerifyingLocation && !verificationResult && (
+          <div className="p-3 bg-amber-50 rounded-md mb-4 text-sm">
+            <div className="flex items-center text-amber-700 mb-2">
+              <Info className="h-5 w-5 mr-2" />
+              <span className="font-medium">Distance Check</span>
+            </div>
+            
+            {(() => {
+              // Calculate distance between user and class location
+              const R = 6371e3; // Earth radius in meters
+              const φ1 = currentLocation.latitude * Math.PI / 180;
+              const φ2 = classItem.location.latitude * Math.PI / 180;
+              const Δφ = (classItem.location.latitude - currentLocation.latitude) * Math.PI / 180;
+              const Δλ = (classItem.location.longitude - currentLocation.longitude) * Math.PI / 180;
+              
+              const a = 
+                Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+              
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              const distance = Math.round(R * c); // Distance in meters
+              
+              // Default threshold if not specified in class
+              const threshold = classItem.distanceThreshold || 100;
+              const withinRange = distance <= threshold;
+              
+              // Determine the percentage for the progress bar (capped at 100%)
+              const percentage = Math.min(100, Math.round((threshold / distance) * 100));
+              
+              return (
+                <>
+                  <div className="mb-2">
+                    <div className="flex justify-between mb-1 text-xs">
+                      <span>Current distance: <span className="font-medium">{distance}m</span></span>
+                      <span>Threshold: <span className="font-medium">{threshold}m</span></span>
+                    </div>
+                    
+                    {/* Progress bar showing distance as percentage of threshold */}
+                    <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                      <div 
+                        className={`h-2 rounded-full ${withinRange ? 'bg-green-500' : 'bg-amber-500'}`}
+                        style={{ width: `${withinRange ? 100 : percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  <div className={`text-sm ${withinRange ? 'text-green-700' : 'text-amber-700'}`}>
+                    {withinRange 
+                      ? <span className="flex items-center"><CheckCircle className="h-4 w-4 mr-1" /> You're within the required distance range.</span>
+                      : <span className="flex items-center"><AlertTriangle className="h-4 w-4 mr-1" /> You need to be closer to the class location.</span>}
+                  </div>
+                  
+                  {/* Route map toggle button */}
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="w-full mt-3"
+                    onClick={() => setShowRouteMap(!showRouteMap)}
+                  >
+                    <Map className="mr-2 h-4 w-4" />
+                    {showRouteMap ? "Hide Route Map" : "Show Route to Class"}
+                  </Button>
+                </>
+              );
+            })()}
+          </div>
+        )}
+        
+        {/* Show route map if enabled */}
+        {showRouteMap && currentLocation && classItem.location && (
+          <StudentRouteMap
+            classLocation={classItem.location}
+            currentLocation={currentLocation}
+            distanceToClass={calculateDistanceToClass()}
+            distanceThreshold={classItem.distanceThreshold || 100}
+            onUpdateLocation={handleLocationUpdate}
+          />
+        )}
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row gap-2 justify-end">
-        {classInstance.location && (
+      <CardFooter className="flex justify-between">
+        <Button
+          variant="outline"
+          onClick={() => setIsQrModalOpen(true)}
+          disabled={!!hasExistingAttendance}
+        >
+          <QrCodeIcon className="mr-2 h-4 w-4" /> QR Scan
+        </Button>
+        
+        {classItem.location && (
           <Button 
             onClick={handleLocationCheckIn} 
-            disabled={isVerifyingLocation || !!existingAttendance || isGettingLocation} 
-            className="w-full sm:w-auto"
+            disabled={isVerifyingLocation || !!hasExistingAttendance}
           >
+            {isVerifyingLocation ? (
+              <LoadingSpinner text="" className="mr-2" />
+            ) : (
             <MapPin className="mr-2 h-4 w-4" /> 
-            {locationError ? "Retry Location" : "Mark Attendance (Location)"}
+            )}
+            {isVerifyingLocation ? "Verifying..." : "Mark Attendance"}
           </Button>
         )}
-        {classInstance.qrCodeValue && (
+      </CardFooter>
+      
+      {classItem.qrCodeValue && (
           <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" disabled={!!existingAttendance} className="w-full sm:w-auto">
+            <Button variant="outline" disabled={!!hasExistingAttendance} className="w-full sm:w-auto">
                 <QrCodeIcon className="mr-2 h-4 w-4" /> Mark Attendance (QR)
               </Button>
             </DialogTrigger>
@@ -409,7 +1063,7 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
                 </TabsContent>
                 
                 <TabsContent value="manual" className="space-y-4 py-4">
-                  <Input 
+                 <Input 
                     type="text" 
                     placeholder="Enter QR code value" 
                     value={qrCodeInput}
@@ -420,7 +1074,7 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
                       <AlertTriangle className="h-4 w-4 mr-1"/>{verificationResult.message}
                     </p>
                   )}
-                  <Button onClick={handleQrCheckIn} className="w-full">Submit Code</Button>
+                  <Button onClick={handleManualQrSubmit} className="w-full">Submit Code</Button>
                 </TabsContent>
               </Tabs>
 
@@ -430,13 +1084,6 @@ export default function ActiveClassCard({ classInstance, onMarkAttendance, exist
             </DialogContent>
           </Dialog>
         )}
-        {!classInstance.location && !classInstance.qrCodeValue && (
-            <div className="p-3 rounded-md text-sm flex items-center bg-yellow-100 text-yellow-700 border border-yellow-300 w-full">
-                <Info className="h-5 w-5 mr-2" />
-                This class has no active check-in methods (Location or QR).
-            </div>
-        )}
-      </CardFooter>
     </Card>
   );
 }

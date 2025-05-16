@@ -44,28 +44,32 @@ export default function AttendanceHistoryTable({ records, classes }: AttendanceH
     }
   };
 
+  const sortedRecords = records.sort((a,b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime());
+
   return (
-    <div className="rounded-lg border shadow-sm overflow-hidden">
+    <div className="overflow-x-auto rounded-lg border shadow-sm">
       <Table>
         <TableCaption>Your attendance history.</TableCaption>
         <TableHeader>
           <TableRow>
             <TableHead>Class Name</TableHead>
-            <TableHead>Check-in Time</TableHead>
+            <TableHead>Date & Time</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Verification Method</TableHead>
+            <TableHead>Method</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {records.sort((a,b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime()).map((record) => (
+          {sortedRecords.length > 0 ? (
+            sortedRecords.map((record) => {
+              const classInfo = classes.find(c => c.id === record.classId);
+              return (
             <TableRow key={record.id}>
-              <TableCell className="font-medium">{getClassName(record.classId)}</TableCell>
+                  <TableCell className="font-medium">
+                    {classInfo?.name || 'Unknown Class'}
+                  </TableCell>
               <TableCell>{new Date(record.checkInTime).toLocaleString()}</TableCell>
               <TableCell>
-                <Badge 
-                  variant={getStatusBadgeVariant(record.status)}
-                  className={record.status === 'Present' ? 'bg-green-100 text-green-800 border-green-300' : record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : ''}
-                >
+                    <Badge variant={getStatusBadgeVariant(record.status)} className={record.status === 'Present' ? 'bg-green-100 text-green-800 border-green-300' : record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : ''}>
                   {record.status}
                 </Badge>
               </TableCell>
@@ -74,7 +78,15 @@ export default function AttendanceHistoryTable({ records, classes }: AttendanceH
                 <span className="ml-2">{record.verificationMethod}</span>
               </TableCell>
             </TableRow>
-          ))}
+              );
+            })
+          ) : (
+            <TableRow>
+              <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                No attendance records found.
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>

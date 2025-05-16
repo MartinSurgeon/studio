@@ -13,7 +13,8 @@ import { useAppContext } from '@/contexts/AppContext';
 import type { Class, GeoLocation } from '@/lib/types';
 import { DEFAULT_DISTANCE_THRESHOLD, LECTURER_MOCK_ID } from '@/config';
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, MapPin } from 'lucide-react';
+import { PlusCircle, MapPin, Loader2, Navigation } from 'lucide-react';
+import { classService } from '@/lib/services/class.service';
 
 const classFormSchema = z.object({
   name: z.string().min(3, 'Class name must be at least 3 characters'),
@@ -38,8 +39,10 @@ interface CreateClassFormProps {
 }
 
 export default function CreateClassForm({ onClassCreated }: CreateClassFormProps) {
-  const { classes, setClasses } = useAppContext();
+  const { classes, setClasses, user } = useAppContext();
   const [showLocationFields, setShowLocationFields] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ClassFormData>({
@@ -61,28 +64,131 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
     }
   }, [useLocationValue, setValue]);
 
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ 
+        title: "Geolocation Error", 
+        description: "Geolocation is not supported by your browser", 
+        variant: "destructive" 
+      });
+      return;
+    }
 
-  const onSubmit: SubmitHandler<ClassFormData> = (data) => {
-    const newClass: Class = {
-      id: `class_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      name: data.name,
-      lecturerId: LECTURER_MOCK_ID,
-      active: false, // Classes are not active immediately on creation
-      startTime: new Date().toISOString(), // Placeholder, lecturer should "start" it
-      distanceThreshold: data.distanceThreshold ? parseInt(data.distanceThreshold, 10) : DEFAULT_DISTANCE_THRESHOLD,
-    };
+    setIsGettingLocation(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setValue('latitude', position.coords.latitude.toString());
+        setValue('longitude', position.coords.longitude.toString());
+        
+        toast({ 
+          title: "Location Acquired", 
+          description: `Your current location (${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}) has been set.`,
+        });
+        
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        
+        let errorMessage = "Unable to retrieve your location";
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied. Please enable it in your browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information is unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "The request to get your location timed out.";
+            break;
+        }
+        
+        toast({ 
+          title: "Geolocation Error", 
+          description: errorMessage, 
+          variant: "destructive" 
+        });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
-    if (data.useLocation && data.latitude && data.longitude) {
-      newClass.location = {
-        latitude: parseFloat(data.latitude),
-        longitude: parseFloat(data.longitude),
-      };
+  // Function to safely dispatch class created event
+  const dispatchClassCreatedEvent = (newClass: Class) => {
+    // Only run this on the client side
+    if (typeof window !== 'undefined') {
+      // Use requestAnimationFrame to ensure this runs after hydration
+      requestAnimationFrame(() => {
+        const classEvent = new CustomEvent('class-updated', {
+          detail: {
+            classId: newClass.id,
+            active: newClass.active,
+            isNewClass: true
+          }
+        });
+        window.dispatchEvent(classEvent);
+        console.log('CreateClassForm: Dispatched class-updated event for new class', newClass.id);
+      });
+    }
+  };
+
+  const onSubmit: SubmitHandler<ClassFormData> = async (data) => {
+    if (!user || !user.id) {
+      toast({ 
+        title: "Authentication Error", 
+        description: "You must be logged in to create a class", 
+        variant: "destructive" 
+      });
+      return;
     }
     
-    onClassCreated(newClass);
-    toast({ title: "Class Created", description: `"${data.name}" has been successfully created.` });
-    reset();
-    setShowLocationFields(false);
+    setIsSubmitting(true);
+    
+    try {
+      // Create class object with proper lecturer ID
+      const classData: Omit<Class, 'id'> = {
+        name: data.name,
+        lecturerId: user.id, // Use actual user ID instead of mock ID
+        active: false,
+        startTime: new Date().toISOString(),
+        distanceThreshold: data.distanceThreshold ? parseInt(data.distanceThreshold, 10) : DEFAULT_DISTANCE_THRESHOLD,
+      };
+
+      if (data.useLocation && data.latitude && data.longitude) {
+        classData.location = {
+          latitude: parseFloat(data.latitude),
+          longitude: parseFloat(data.longitude),
+        };
+      }
+      
+      // Save to Supabase
+      const savedClass = await classService.createClass(classData);
+      
+      if (!savedClass) {
+        throw new Error("Failed to save class to database");
+      }
+      
+      // Update local state
+      onClassCreated(savedClass);
+      toast({ title: "Class Created", description: `"${data.name}" has been successfully created and saved.` });
+      
+      // Notify students about new class
+      dispatchClassCreatedEvent(savedClass);
+      
+      reset();
+      setShowLocationFields(false);
+    } catch (error) {
+      console.error("Error creating class:", error);
+      toast({ 
+        title: "Error Creating Class", 
+        description: error instanceof Error ? error.message : "An unknown error occurred", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -109,8 +215,30 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
 
           {showLocationFields && (
             <div className="space-y-4 p-4 border rounded-md bg-muted/50">
-              <div className="flex items-center text-primary font-medium mb-2">
-                <MapPin className="h-5 w-5 mr-2"/> Location Details
+              <div className="flex items-center justify-between text-primary font-medium mb-2">
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-2"/> Location Details
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleGetCurrentLocation}
+                  disabled={isGettingLocation}
+                  className="h-8"
+                >
+                  {isGettingLocation ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Getting Location...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="mr-2 h-4 w-4" />
+                      Use Current Location
+                    </>
+                  )}
+                </Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -133,8 +261,16 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
           )}
         </CardContent>
         <CardFooter>
-          <Button type="submit" className="w-full">
-            <PlusCircle className="mr-2 h-5 w-5" /> Create Class
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Creating Class...
+              </>
+            ) : (
+              <>
+                <PlusCircle className="mr-2 h-5 w-5" /> Create Class
+              </>
+            )}
           </Button>
         </CardFooter>
       </form>

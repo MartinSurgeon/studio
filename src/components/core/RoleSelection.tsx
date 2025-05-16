@@ -3,16 +3,17 @@
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAppContext } from '@/contexts/AppContext';
 import { User, Briefcase } from 'lucide-react';
 
 export default function RoleSelection() {
-  const { setUserRole } = useAppContext();
   const router = useRouter();
 
   const handleRoleSelect = (role: 'student' | 'lecturer') => {
-    setUserRole(role);
-    router.push('/dashboard');
+    if (role === 'student') {
+      router.push('/auth/student');
+    } else {
+      router.push('/auth/lecturer');
+    }
   };
 
   return (

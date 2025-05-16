@@ -2,16 +2,35 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+// Helper function to get the tab ID
+const getTabId = (): string => {
+  // Check if we're in the browser environment
+  if (typeof window === 'undefined') {
+    return 'server-side';
+  }
+  
+  // Try to get existing tab ID or create a new one
+  let tabId = sessionStorage.getItem('geoattend-tab-id');
+  if (!tabId) {
+    tabId = `tab-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    sessionStorage.setItem('geoattend-tab-id', tabId);
+  }
+  return tabId;
+};
+
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
+  // Create a tab-specific key
+  const tabSpecificKey = `${typeof window !== 'undefined' ? getTabId() : 'server'}:${key}`;
+  
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === 'undefined') {
       return initialValue;
     }
     try {
-      const item = window.localStorage.getItem(key);
+      const item = window.localStorage.getItem(tabSpecificKey);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
+      console.error(`Error reading localStorage key "${tabSpecificKey}":`, error);
       return initialValue;
     }
   });
@@ -21,18 +40,18 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
       const valueToStore = value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        window.localStorage.setItem(tabSpecificKey, JSON.stringify(valueToStore));
       }
     } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error);
+      console.error(`Error setting localStorage key "${tabSpecificKey}":`, error);
     }
-  }, [key, storedValue]);
+  }, [tabSpecificKey, storedValue]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === key) {
+      if (event.key === tabSpecificKey) {
         try {
           if (event.newValue) {
             setStoredValue(JSON.parse(event.newValue));
@@ -41,7 +60,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
             setStoredValue(initialValue);
           }
         } catch (error) {
-          console.error(`Error parsing localStorage change for key "${key}":`, error);
+          console.error(`Error parsing localStorage change for key "${tabSpecificKey}":`, error);
           setStoredValue(initialValue);
         }
       }
@@ -51,7 +70,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [key, initialValue]);
+  }, [tabSpecificKey, initialValue]);
 
 
   return [storedValue, setValue];

@@ -29,4 +29,5 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
   verificationMethod: VerificationMethod;
   verifiedLocation?: GeoLocation;
+  deviceId?: string; // Added to track the device that recorded attendance
 }

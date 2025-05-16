@@ -1,0 +1,11 @@
+version: "2"
+authtoken: 2nWujfPuSFaCaUc1DuGWTmWnRki_2GtgDsNyLjCJhRBjhZaGG
+tunnels:
+  web:
+    proto: http
+    addr: 3000
+    # Add additional tunnels as needed
+    # example:
+    # api:
+    #   proto: http
+    #   addr: 8080 
