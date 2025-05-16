@@ -1,7 +1,12 @@
 {
   "version": 2,
+  "framework": "nextjs",
   "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "nextjs"
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://wpkfgsgvkycyqmiptnmf.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indwa2Znc2d2a3ljeXFtaXB0bm1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcxMzk1MjgsImV4cCI6MjA2MjcxNTUyOH0.cgfQGTfzSc5cgjGGS0nsBZBtLfnG609NeWK6FsgH3E1o",
+    "NODE_OPTIONS": "--max_old_space_size=4096"
+  }
 } 
