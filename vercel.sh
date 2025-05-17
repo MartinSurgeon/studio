@@ -21,7 +21,8 @@ if command -v next &> /dev/null; then
   echo "✅ next command is available"
 else
   echo "❌ next command not found. Creating an explicit path..."
-  export PATH="$PATH:$(pwd)/node_modules/.bin"
+  PATH="$PATH:$(pwd)/node_modules/.bin"
+  export PATH
   echo "Updated PATH: $PATH"
   if command -v next &> /dev/null; then
     echo "✅ next command is now available after path update"
