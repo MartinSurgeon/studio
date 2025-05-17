@@ -1,9 +1,8 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import {Geist, Geist_Mono} from 'next/font/google';
 import './globals.css';
 import { AppProvider } from '@/contexts/AppContext';
 import { Toaster } from "@/components/ui/toaster";
-
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,21 +14,22 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#000000',
+};
+
 export const metadata: Metadata = {
   title: 'Trakzy',
   description: 'Smart Attendance System',
   manifest: '/manifest.json',
-  themeColor: '#000000',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'Trakzy',
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
   },
   icons: {
     icon: [
