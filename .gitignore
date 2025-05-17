@@ -43,3 +43,8 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# large files
+trakzy-vercel-deploy.zip
+ngrok.zip
+ngrok.exe
