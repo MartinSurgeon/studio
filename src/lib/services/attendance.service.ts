@@ -533,9 +533,8 @@ export const attendanceService = {
         };
       }
       
-      const status = isWithinThreshold 
-        ? (isLate ? 'Late' : 'Present') 
-        : 'Absent';
+      // Only proceed with attendance marking if within threshold or in test environment
+      const status = isLate ? 'Late' : 'Present';
       
       // Create attendance record
       const newRecord: Omit<AttendanceRecord, 'id'> = {
