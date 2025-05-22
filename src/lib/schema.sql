@@ -73,7 +73,15 @@ CREATE TABLE IF NOT EXISTS classes (
   lecturer_id UUID NOT NULL REFERENCES users(id),
   qr_code_value TEXT,
   qr_code_expiry BIGINT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- New columns for enhanced scheduling
+  schedule_type TEXT NOT NULL DEFAULT 'one-time', -- 'one-time', 'daily', 'weekly', 'custom'
+  recurrence_pattern JSONB, -- For custom recurrence patterns
+  duration_minutes INTEGER NOT NULL DEFAULT 60, -- Default class duration
+  grace_period_minutes INTEGER NOT NULL DEFAULT 15, -- Grace period for late attendance
+  auto_start BOOLEAN NOT NULL DEFAULT FALSE, -- Whether class should start automatically
+  auto_end BOOLEAN NOT NULL DEFAULT FALSE, -- Whether class should end automatically
+  next_occurrence TIMESTAMPTZ -- For recurring classes
 );
 
 -- Enable Row Level Security

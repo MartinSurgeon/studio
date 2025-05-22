@@ -20,6 +20,17 @@ const editClassFormSchema = z.object({
   latitude: z.string().optional(),
   longitude: z.string().optional(),
   distanceThreshold: z.string().optional(),
+  scheduleType: z.enum(['one-time', 'daily', 'weekly', 'custom']).default('one-time'),
+  durationMinutes: z.string().min(1, 'Duration is required'),
+  gracePeriodMinutes: z.string().min(1, 'Grace period is required'),
+  autoStart: z.boolean().default(false),
+  autoEnd: z.boolean().default(false),
+  recurrenceFrequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
+  recurrenceInterval: z.string().optional(),
+  recurrenceDaysOfWeek: z.array(z.number()).optional(),
+  recurrenceDaysOfMonth: z.array(z.number()).optional(),
+  recurrenceEndDate: z.string().optional(),
+  recurrenceOccurrences: z.string().optional(),
 }).refine(data => {
   if (data.useLocation) {
     return !!data.latitude && !!data.longitude && !isNaN(parseFloat(data.latitude)) && !isNaN(parseFloat(data.longitude));
@@ -27,7 +38,7 @@ const editClassFormSchema = z.object({
   return true;
 }, {
   message: 'Latitude and Longitude are required if location verification is enabled and must be valid numbers.',
-  path: ['latitude'], // Show error on latitude field
+  path: ['latitude'],
 });
 
 type EditClassFormData = z.infer<typeof editClassFormSchema>;
@@ -43,14 +54,25 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const { toast } = useToast();
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<EditClassFormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors }, control } = useForm<EditClassFormData>({
     resolver: zodResolver(editClassFormSchema),
     defaultValues: {
       name: classInstance.name,
       useLocation: !!classInstance.location,
-      latitude: classInstance.location?.latitude.toString() || '',
-      longitude: classInstance.location?.longitude.toString() || '',
-      distanceThreshold: classInstance.distanceThreshold.toString(),
+      latitude: classInstance.location?.latitude?.toString() || '',
+      longitude: classInstance.location?.longitude?.toString() || '',
+      distanceThreshold: classInstance.distanceThreshold?.toString() || DEFAULT_DISTANCE_THRESHOLD.toString(),
+      scheduleType: classInstance.scheduleType || 'one-time',
+      durationMinutes: classInstance.durationMinutes?.toString() || '60',
+      gracePeriodMinutes: classInstance.gracePeriodMinutes?.toString() || '15',
+      autoStart: classInstance.autoStart || false,
+      autoEnd: classInstance.autoEnd || false,
+      recurrenceFrequency: classInstance.recurrencePattern?.frequency || 'weekly',
+      recurrenceInterval: classInstance.recurrencePattern?.interval?.toString() || '1',
+      recurrenceDaysOfWeek: classInstance.recurrencePattern?.daysOfWeek || [],
+      recurrenceDaysOfMonth: classInstance.recurrencePattern?.daysOfMonth || [],
+      recurrenceEndDate: classInstance.recurrencePattern?.endDate || '',
+      recurrenceOccurrences: classInstance.recurrencePattern?.occurrences?.toString() || '',
     }
   });
 
@@ -60,14 +82,29 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
       reset({
         name: classInstance.name,
         useLocation: !!classInstance.location,
-        latitude: classInstance.location?.latitude.toString() || '',
-        longitude: classInstance.location?.longitude.toString() || '',
-        distanceThreshold: classInstance.distanceThreshold.toString(),
+        latitude: classInstance.location?.latitude?.toString() || '',
+        longitude: classInstance.location?.longitude?.toString() || '',
+        distanceThreshold: classInstance.distanceThreshold?.toString() || DEFAULT_DISTANCE_THRESHOLD.toString(),
+        scheduleType: classInstance.scheduleType || 'one-time',
+        durationMinutes: classInstance.durationMinutes?.toString() || '60',
+        gracePeriodMinutes: classInstance.gracePeriodMinutes?.toString() || '15',
+        autoStart: classInstance.autoStart || false,
+        autoEnd: classInstance.autoEnd || false,
+        recurrenceFrequency: classInstance.recurrencePattern?.frequency || 'weekly',
+        recurrenceInterval: classInstance.recurrencePattern?.interval?.toString() || '1',
+        recurrenceDaysOfWeek: classInstance.recurrencePattern?.daysOfWeek || [],
+        recurrenceDaysOfMonth: classInstance.recurrencePattern?.daysOfMonth || [],
+        recurrenceEndDate: classInstance.recurrencePattern?.endDate || '',
+        recurrenceOccurrences: classInstance.recurrencePattern?.occurrences?.toString() || '',
       });
     }
   }, [isOpen, classInstance, reset]);
 
   const useLocationValue = watch('useLocation');
+  const scheduleTypeValue = watch('scheduleType');
+  const recurrenceFrequency = watch('recurrenceFrequency');
+  const recurrenceDaysOfWeek = watch('recurrenceDaysOfWeek');
+  const recurrenceDaysOfMonth = watch('recurrenceDaysOfMonth');
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -125,6 +162,19 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
       ...classInstance,
       name: data.name,
       distanceThreshold: data.distanceThreshold ? parseInt(data.distanceThreshold, 10) : DEFAULT_DISTANCE_THRESHOLD,
+      scheduleType: data.scheduleType,
+      durationMinutes: parseInt(data.durationMinutes, 10),
+      gracePeriodMinutes: parseInt(data.gracePeriodMinutes, 10),
+      autoStart: data.autoStart,
+      autoEnd: data.autoEnd,
+      recurrencePattern: data.scheduleType === 'custom' ? {
+        frequency: data.recurrenceFrequency || 'weekly',
+        interval: data.recurrenceInterval ? parseInt(data.recurrenceInterval, 10) : 1,
+        daysOfWeek: data.recurrenceFrequency === 'weekly' ? data.recurrenceDaysOfWeek : undefined,
+        daysOfMonth: data.recurrenceFrequency === 'monthly' ? data.recurrenceDaysOfMonth : undefined,
+        endDate: data.recurrenceEndDate || undefined,
+        occurrences: data.recurrenceOccurrences ? parseInt(data.recurrenceOccurrences, 10) : undefined,
+      } : undefined,
     };
 
     if (data.useLocation && data.latitude && data.longitude) {
@@ -136,7 +186,6 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
       // Remove location if useLocation is false
       delete updatedClass.location;
     }
-    
     onUpdateClass(updatedClass);
     toast({ title: "Class Updated", description: `"${data.name}" has been successfully updated.` });
     onOpenChange(false);
@@ -175,7 +224,7 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
 
           {useLocationValue && (
             <div className="space-y-4 p-4 border rounded-md bg-muted/50">
-              <div className="flex items-center justify-between text-primary font-medium mb-2">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between text-primary font-medium mb-2 gap-2">
                 <div className="flex items-center">
                   <MapPin className="h-5 w-5 mr-2"/> Location Details
                 </div>
@@ -185,7 +234,7 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
                   size="sm" 
                   onClick={handleGetCurrentLocation}
                   disabled={isGettingLocation}
-                  className="h-8"
+                  className="h-8 w-full md:w-auto"
                 >
                   {isGettingLocation ? (
                     <>
@@ -203,48 +252,157 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-latitude">Latitude</Label>
-                  <Input 
-                    id="edit-latitude" 
-                    type="number" 
-                    step="any" 
-                    {...register('latitude')} 
-                    placeholder="e.g., 34.0522" 
-                    className={errors.latitude ? 'border-destructive' : ''}
-                  />
+                  <Input id="edit-latitude" type="number" step="any" {...register('latitude')} placeholder="e.g., 34.0522" className={errors.latitude ? 'border-destructive' : ''}/>
                   {errors.latitude && <p className="text-sm text-destructive">{errors.latitude.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-longitude">Longitude</Label>
-                  <Input 
-                    id="edit-longitude" 
-                    type="number" 
-                    step="any" 
-                    {...register('longitude')} 
-                    placeholder="e.g., -118.2437" 
-                    className={errors.longitude ? 'border-destructive' : ''}
-                  />
+                  <Input id="edit-longitude" type="number" step="any" {...register('longitude')} placeholder="e.g., -118.2437" className={errors.longitude ? 'border-destructive' : ''}/>
                   {errors.longitude && <p className="text-sm text-destructive">{errors.longitude.message}</p>}
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-distanceThreshold">Distance Threshold (meters)</Label>
-                <Input 
-                  id="edit-distanceThreshold" 
-                  type="number" 
-                  {...register('distanceThreshold')} 
-                  className={errors.distanceThreshold ? 'border-destructive' : ''} 
-                />
+                <Input id="edit-distanceThreshold" type="number" {...register('distanceThreshold')} defaultValue={DEFAULT_DISTANCE_THRESHOLD} className={errors.distanceThreshold ? 'border-destructive' : ''} />
                 {errors.distanceThreshold && <p className="text-sm text-destructive">{errors.distanceThreshold.message}</p>}
               </div>
-              
-              {classInstance.active && (
-                <div className="flex items-center p-3 mt-2 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800">
-                  <AlertTriangle className="h-4 w-4 mr-2 text-yellow-600" />
-                  <span className="text-xs">Changing location settings for an active class may affect students currently trying to mark attendance.</span>
-                </div>
-              )}
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-scheduleType">Schedule Type</Label>
+            <select id="edit-scheduleType" {...register('scheduleType')} className="w-full border rounded px-2 py-1">
+              <option value="one-time">One Time</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+
+          {/* Recurrence Pattern Fields (only for custom) */}
+          {scheduleTypeValue === 'custom' && (
+            <div className="space-y-4 p-4 border rounded-md bg-muted/50">
+              <div className="space-y-2">
+                <Label>Recurrence Pattern</Label>
+                <select {...register('recurrenceFrequency')} className="w-full border rounded px-2 py-1">
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Repeat every</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={99}
+                    {...register('recurrenceInterval')}
+                    className="w-20"
+                  />
+                  <span>{recurrenceFrequency === 'daily' ? 'days' : recurrenceFrequency === 'weekly' ? 'weeks' : 'months'}</span>
+                </div>
+              </div>
+              {recurrenceFrequency === 'weekly' && (
+                <div className="space-y-2">
+                  <Label>Repeat on</Label>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, index) => (
+                      <div key={day} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          value={index}
+                          checked={recurrenceDaysOfWeek?.includes(index)}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            const value = parseInt(e.target.value, 10);
+                            let newDays = recurrenceDaysOfWeek ? [...recurrenceDaysOfWeek] : [];
+                            if (checked) {
+                              newDays.push(value);
+                            } else {
+                              newDays = newDays.filter(d => d !== value);
+                            }
+                            setValue('recurrenceDaysOfWeek', newDays);
+                          }}
+                        />
+                        <Label>{day}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {recurrenceFrequency === 'monthly' && (
+                <div className="space-y-2">
+                  <Label>Repeat on days</Label>
+                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                      <div key={day} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          value={day}
+                          checked={recurrenceDaysOfMonth?.includes(day)}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            const value = parseInt(e.target.value, 10);
+                            let newDays = recurrenceDaysOfMonth ? [...recurrenceDaysOfMonth] : [];
+                            if (checked) {
+                              newDays.push(value);
+                            } else {
+                              newDays = newDays.filter(d => d !== value);
+                            }
+                            setValue('recurrenceDaysOfMonth', newDays);
+                          }}
+                        />
+                        <Label>{day}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>End Date (Optional)</Label>
+                <Input
+                  type="date"
+                  {...register('recurrenceEndDate')}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Occurrences (Optional)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  {...register('recurrenceOccurrences')}
+                  placeholder="Number of occurrences"
+                  className="w-full"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-durationMinutes">Duration (minutes)</Label>
+              <Input id="edit-durationMinutes" type="number" min={15} max={480} {...register('durationMinutes')} className="w-full" />
+              {errors.durationMinutes && <p className="text-sm text-destructive">{errors.durationMinutes.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-gracePeriodMinutes">Grace Period (minutes)</Label>
+              <Input id="edit-gracePeriodMinutes" type="number" min={0} max={60} {...register('gracePeriodMinutes')} className="w-full" />
+              {errors.gracePeriodMinutes && <p className="text-sm text-destructive">{errors.gracePeriodMinutes.message}</p>}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="edit-autoStart" {...register('autoStart')} />
+              <Label htmlFor="edit-autoStart">Auto-start class at scheduled time</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="edit-autoEnd" {...register('autoEnd')} />
+              <Label htmlFor="edit-autoEnd">Auto-end class after duration</Label>
+            </div>
+          </div>
 
           <DialogFooter className="mt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

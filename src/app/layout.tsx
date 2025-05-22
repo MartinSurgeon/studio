@@ -3,6 +3,7 @@ import {Geist, Geist_Mono} from 'next/font/google';
 import './globals.css';
 import { AppProvider } from '@/contexts/AppContext';
 import { Toaster } from "@/components/ui/toaster";
+import BackgroundServiceProvider from '@/components/core/BackgroundServiceProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -59,8 +60,10 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <AppProvider>
+          <BackgroundServiceProvider>
           {children}
           <Toaster />
+          </BackgroundServiceProvider>
         </AppProvider>
       </body>
     </html>

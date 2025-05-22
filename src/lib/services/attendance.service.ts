@@ -61,6 +61,8 @@ const mapToAttendanceRow = (record: AttendanceRecord): InsertDTO<'attendance_rec
   return rowData as InsertDTO<'attendance_records'>;
 };
 
+export type VerificationMethod = 'QR' | 'Location' | 'Manual' | 'Biometric' | 'Facial' | 'NFC';
+
 // Service functions
 export const attendanceService = {
   // Get test attendance records from localStorage
@@ -582,7 +584,136 @@ export const attendanceService = {
       handleSupabaseError(error as Error);
       return { success: false, message: 'Failed to mark attendance' };
     }
-  }
+  },
+
+  // New method for biometric verification
+  async markAttendanceWithBiometric(
+    classId: string,
+    studentId: string,
+    biometricData: string
+  ): Promise<{ success: boolean; record?: AttendanceRecord; message?: string }> {
+    try {
+      // Verify biometric data with the student's stored biometrics
+      const { data: studentData, error: studentError } = await supabase
+        .from('users')
+        .select('biometric_data')
+        .eq('id', studentId)
+        .single();
+
+      if (studentError) throw studentError;
+      if (!studentData?.biometric_data) {
+        return { success: false, message: 'No biometric data found for student' };
+      }
+
+      // In a real implementation, you would verify the biometric data here
+      // For now, we'll just check if it matches
+      if (studentData.biometric_data !== biometricData) {
+        return { success: false, message: 'Biometric verification failed' };
+      }
+
+      // Create attendance record
+      const newRecord: Omit<AttendanceRecord, 'id'> = {
+        classId,
+        studentId,
+        checkInTime: new Date().toISOString(),
+        status: 'Present',
+        verificationMethod: 'Biometric',
+        deviceId: getDeviceId()
+      };
+
+      const createdRecord = await this.createAttendanceRecord(newRecord);
+      return { success: true, record: createdRecord };
+    } catch (error) {
+      console.error('Biometric attendance error:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+
+  // New method for facial recognition
+  async markAttendanceWithFacial(
+    classId: string,
+    studentId: string,
+    facialData: string
+  ): Promise<{ success: boolean; record?: AttendanceRecord; message?: string }> {
+    try {
+      // Verify facial data with the student's stored facial data
+      const { data: studentData, error: studentError } = await supabase
+        .from('users')
+        .select('facial_data')
+        .eq('id', studentId)
+        .single();
+
+      if (studentError) throw studentError;
+      if (!studentData?.facial_data) {
+        return { success: false, message: 'No facial data found for student' };
+      }
+
+      // In a real implementation, you would verify the facial data here
+      // For now, we'll just check if it matches
+      if (studentData.facial_data !== facialData) {
+        return { success: false, message: 'Facial verification failed' };
+      }
+
+      // Create attendance record
+      const newRecord: Omit<AttendanceRecord, 'id'> = {
+        classId,
+        studentId,
+        checkInTime: new Date().toISOString(),
+        status: 'Present',
+        verificationMethod: 'Facial',
+        deviceId: getDeviceId()
+      };
+
+      const createdRecord = await this.createAttendanceRecord(newRecord);
+      return { success: true, record: createdRecord };
+    } catch (error) {
+      console.error('Facial attendance error:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+
+  // New method for NFC verification
+  async markAttendanceWithNFC(
+    classId: string,
+    studentId: string,
+    nfcData: string
+  ): Promise<{ success: boolean; record?: AttendanceRecord; message?: string }> {
+    try {
+      // Verify NFC data with the student's stored NFC data
+      const { data: studentData, error: studentError } = await supabase
+        .from('users')
+        .select('nfc_data')
+        .eq('id', studentId)
+        .single();
+
+      if (studentError) throw studentError;
+      if (!studentData?.nfc_data) {
+        return { success: false, message: 'No NFC data found for student' };
+      }
+
+      // In a real implementation, you would verify the NFC data here
+      // For now, we'll just check if it matches
+      if (studentData.nfc_data !== nfcData) {
+        return { success: false, message: 'NFC verification failed' };
+      }
+
+      // Create attendance record
+      const newRecord: Omit<AttendanceRecord, 'id'> = {
+        classId,
+        studentId,
+        checkInTime: new Date().toISOString(),
+        status: 'Present',
+        verificationMethod: 'NFC',
+        deviceId: getDeviceId()
+      };
+
+      const createdRecord = await this.createAttendanceRecord(newRecord);
+      return { success: true, record: createdRecord };
+    } catch (error) {
+      console.error('NFC attendance error:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
 };
 
 // Haversine formula to calculate distance between two coordinates in meters

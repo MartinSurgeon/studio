@@ -22,6 +22,18 @@ const classFormSchema = z.object({
   latitude: z.string().optional(),
   longitude: z.string().optional(),
   distanceThreshold: z.string().optional(),
+  scheduleType: z.enum(['one-time', 'daily', 'weekly', 'custom']).default('one-time'),
+  durationMinutes: z.string().min(1, 'Duration is required'),
+  gracePeriodMinutes: z.string().min(1, 'Grace period is required'),
+  autoStart: z.boolean().default(false),
+  autoEnd: z.boolean().default(false),
+  // Recurrence pattern fields (optional, only for custom)
+  recurrenceFrequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
+  recurrenceInterval: z.string().optional(),
+  recurrenceDaysOfWeek: z.array(z.number()).optional(),
+  recurrenceDaysOfMonth: z.array(z.number()).optional(),
+  recurrenceEndDate: z.string().optional(),
+  recurrenceOccurrences: z.string().optional(),
 }).refine(data => {
   if (data.useLocation) {
     return !!data.latitude && !!data.longitude && !isNaN(parseFloat(data.latitude)) && !isNaN(parseFloat(data.longitude));
@@ -45,16 +57,32 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ClassFormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors }, control } = useForm<ClassFormData>({
     resolver: zodResolver(classFormSchema),
     defaultValues: {
       name: '',
       useLocation: false,
       distanceThreshold: DEFAULT_DISTANCE_THRESHOLD.toString(),
+      scheduleType: 'one-time',
+      durationMinutes: '60',
+      gracePeriodMinutes: '15',
+      autoStart: false,
+      autoEnd: false,
+      recurrenceFrequency: 'weekly',
+      recurrenceInterval: '1',
+      recurrenceDaysOfWeek: [],
+      recurrenceDaysOfMonth: [],
+      recurrenceEndDate: '',
+      recurrenceOccurrences: '',
     }
   });
 
   const useLocationValue = watch('useLocation');
+  const scheduleTypeValue = watch('scheduleType');
+  const recurrenceFrequency = watch('recurrenceFrequency');
+  const recurrenceDaysOfWeek = watch('recurrenceDaysOfWeek');
+  const recurrenceDaysOfMonth = watch('recurrenceDaysOfMonth');
+  const recurrenceEndDate = watch('recurrenceEndDate');
 
   useEffect(() => {
     setShowLocationFields(useLocationValue);
@@ -154,6 +182,19 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
         active: false,
         startTime: new Date().toISOString(),
         distanceThreshold: data.distanceThreshold ? parseInt(data.distanceThreshold, 10) : DEFAULT_DISTANCE_THRESHOLD,
+        scheduleType: data.scheduleType,
+        durationMinutes: parseInt(data.durationMinutes, 10),
+        gracePeriodMinutes: parseInt(data.gracePeriodMinutes, 10),
+        autoStart: data.autoStart,
+        autoEnd: data.autoEnd,
+        recurrencePattern: data.scheduleType === 'custom' ? {
+          frequency: data.recurrenceFrequency || 'weekly',
+          interval: data.recurrenceInterval ? parseInt(data.recurrenceInterval, 10) : 1,
+          daysOfWeek: data.recurrenceFrequency === 'weekly' ? data.recurrenceDaysOfWeek : undefined,
+          daysOfMonth: data.recurrenceFrequency === 'monthly' ? data.recurrenceDaysOfMonth : undefined,
+          endDate: data.recurrenceEndDate || undefined,
+          occurrences: data.recurrenceOccurrences ? parseInt(data.recurrenceOccurrences, 10) : undefined,
+        } : undefined,
       };
 
       if (data.useLocation && data.latitude && data.longitude) {
@@ -215,7 +256,7 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
 
           {showLocationFields && (
             <div className="space-y-4 p-4 border rounded-md bg-muted/50">
-              <div className="flex items-center justify-between text-primary font-medium mb-2">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between text-primary font-medium mb-2 gap-2">
                 <div className="flex items-center">
                   <MapPin className="h-5 w-5 mr-2"/> Location Details
                 </div>
@@ -225,7 +266,7 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
                   size="sm" 
                   onClick={handleGetCurrentLocation}
                   disabled={isGettingLocation}
-                  className="h-8"
+                  className="h-8 w-full md:w-auto"
                 >
                   {isGettingLocation ? (
                     <>
@@ -259,6 +300,141 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
               </div>
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="scheduleType">Schedule Type</Label>
+            <select id="scheduleType" {...register('scheduleType')} className="w-full border rounded px-2 py-1">
+              <option value="one-time">One Time</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+
+          {/* Recurrence Pattern Fields (only for custom) */}
+          {scheduleTypeValue === 'custom' && (
+            <div className="space-y-4 p-4 border rounded-md bg-muted/50">
+              <div className="space-y-2">
+                <Label>Recurrence Pattern</Label>
+                <select {...register('recurrenceFrequency')} className="w-full border rounded px-2 py-1">
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Repeat every</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={99}
+                    {...register('recurrenceInterval')}
+                    className="w-20"
+                  />
+                  <span>{recurrenceFrequency === 'daily' ? 'days' : recurrenceFrequency === 'weekly' ? 'weeks' : 'months'}</span>
+                </div>
+              </div>
+              {recurrenceFrequency === 'weekly' && (
+                <div className="space-y-2">
+                  <Label>Repeat on</Label>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, index) => (
+                      <div key={day} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          value={index}
+                          checked={recurrenceDaysOfWeek?.includes(index)}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            const value = parseInt(e.target.value, 10);
+                            let newDays = recurrenceDaysOfWeek ? [...recurrenceDaysOfWeek] : [];
+                            if (checked) {
+                              newDays.push(value);
+                            } else {
+                              newDays = newDays.filter(d => d !== value);
+                            }
+                            setValue('recurrenceDaysOfWeek', newDays);
+                          }}
+                        />
+                        <Label>{day}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {recurrenceFrequency === 'monthly' && (
+                <div className="space-y-2">
+                  <Label>Repeat on days</Label>
+                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                      <div key={day} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          value={day}
+                          checked={recurrenceDaysOfMonth?.includes(day)}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            const value = parseInt(e.target.value, 10);
+                            let newDays = recurrenceDaysOfMonth ? [...recurrenceDaysOfMonth] : [];
+                            if (checked) {
+                              newDays.push(value);
+                            } else {
+                              newDays = newDays.filter(d => d !== value);
+                            }
+                            setValue('recurrenceDaysOfMonth', newDays);
+                          }}
+                        />
+                        <Label>{day}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>End Date (Optional)</Label>
+                <Input
+                  type="date"
+                  {...register('recurrenceEndDate')}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Occurrences (Optional)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  {...register('recurrenceOccurrences')}
+                  placeholder="Number of occurrences"
+                  className="w-full"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="durationMinutes">Duration (minutes)</Label>
+              <Input id="durationMinutes" type="number" min={15} max={480} {...register('durationMinutes')} className="w-full" />
+              {errors.durationMinutes && <p className="text-sm text-destructive">{errors.durationMinutes.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gracePeriodMinutes">Grace Period (minutes)</Label>
+              <Input id="gracePeriodMinutes" type="number" min={0} max={60} {...register('gracePeriodMinutes')} className="w-full" />
+              {errors.gracePeriodMinutes && <p className="text-sm text-destructive">{errors.gracePeriodMinutes.message}</p>}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="autoStart" {...register('autoStart')} />
+              <Label htmlFor="autoStart">Auto-start class at scheduled time</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="autoEnd" {...register('autoEnd')} />
+              <Label htmlFor="autoEnd">Auto-end class after duration</Label>
+            </div>
+          </div>
         </CardContent>
         <CardFooter>
           <Button type="submit" className="w-full" disabled={isSubmitting}>

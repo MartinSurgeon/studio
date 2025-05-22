@@ -1,6 +1,7 @@
 import { supabase, handleSupabaseError } from '@/lib/supabase';
-import type { Class } from '@/lib/types';
+import type { Class, RecurrencePattern } from '@/lib/types';
 import type { Tables, InsertDTO, UpdateDTO } from '@/lib/database.types';
+import { addDays, addWeeks, addMonths, isAfter, isBefore, parseISO } from 'date-fns';
 
 // Mapper to convert database rows to application types
 const mapToClass = (row: Tables<'classes'>): Class => ({
@@ -16,6 +17,14 @@ const mapToClass = (row: Tables<'classes'>): Class => ({
   lecturerId: row.lecturer_id,
   qrCodeValue: row.qr_code_value || undefined,
   qrCodeExpiry: row.qr_code_expiry || undefined,
+  createdAt: row.created_at,
+  scheduleType: row.schedule_type,
+  recurrencePattern: row.recurrence_pattern,
+  durationMinutes: row.duration_minutes,
+  gracePeriodMinutes: row.grace_period_minutes,
+  autoStart: row.auto_start,
+  autoEnd: row.auto_end,
+  nextOccurrence: row.next_occurrence
 });
 
 // Mapper to convert application types to database rows
@@ -31,6 +40,14 @@ const mapToClassRow = (classData: Class): InsertDTO<'classes'> => ({
   lecturer_id: classData.lecturerId,
   qr_code_value: classData.qrCodeValue || null,
   qr_code_expiry: classData.qrCodeExpiry || null,
+  created_at: classData.createdAt,
+  schedule_type: classData.scheduleType,
+  recurrence_pattern: classData.recurrencePattern,
+  duration_minutes: classData.durationMinutes,
+  grace_period_minutes: classData.gracePeriodMinutes,
+  auto_start: classData.autoStart,
+  auto_end: classData.autoEnd,
+  next_occurrence: classData.nextOccurrence
 });
 
 // Ensure API key is included in all requests
@@ -277,6 +294,101 @@ export const classService = {
     } catch (error) {
       handleSupabaseError(error as Error);
       return false;
+    }
+  },
+
+  // Get all classes for a lecturer
+  async getLecturerClasses(lecturerId: string): Promise<Class[]> {
+    const { data, error } = await supabase
+      .from('classes')
+      .select('*')
+      .eq('lecturer_id', lecturerId)
+      .order('start_time', { ascending: true });
+
+    if (error) throw error;
+    return data.map(mapToClass);
+  },
+
+  // Generate next occurrence for recurring classes
+  async generateNextOccurrence(classId: string): Promise<Class | null> {
+    const classInstance = await this.getClass(classId);
+    if (!classInstance || !classInstance.recurrencePattern) return null;
+
+    const pattern = classInstance.recurrencePattern;
+    const lastOccurrence = parseISO(classInstance.nextOccurrence || classInstance.startTime);
+    let nextDate: Date;
+
+    switch (pattern.frequency) {
+      case 'daily':
+        nextDate = addDays(lastOccurrence, pattern.interval);
+        break;
+      case 'weekly':
+        nextDate = addWeeks(lastOccurrence, pattern.interval);
+        break;
+      case 'monthly':
+        nextDate = addMonths(lastOccurrence, pattern.interval);
+        break;
+      default:
+        return null;
+    }
+
+    // Check if we've reached the end date
+    if (pattern.endDate && isAfter(nextDate, parseISO(pattern.endDate))) {
+      return null;
+    }
+
+    // Create new class instance
+    const newClass: Omit<Class, 'id'> = {
+      ...classInstance,
+      startTime: nextDate.toISOString(),
+      endTime: classInstance.endTime ? 
+        new Date(nextDate.getTime() + (parseISO(classInstance.endTime).getTime() - parseISO(classInstance.startTime).getTime()))
+        .toISOString() : undefined,
+      nextOccurrence: nextDate.toISOString()
+    };
+
+    return this.createClass(newClass);
+  },
+
+  // Handle auto-start/end for classes
+  async handleAutoStartEnd(): Promise<void> {
+    const now = new Date();
+    
+    // Get all active classes
+    const { data: activeClasses, error } = await supabase
+      .from('classes')
+      .select('*')
+      .eq('active', true);
+
+    if (error) throw error;
+
+    for (const classData of activeClasses) {
+      const classInstance = mapToClass(classData);
+      const startTime = parseISO(classInstance.startTime);
+      const endTime = classInstance.endTime ? parseISO(classInstance.endTime) : null;
+
+      // Handle auto-start
+      if (classInstance.autoStart && 
+          isBefore(startTime, now) && 
+          (!endTime || isAfter(endTime, now))) {
+        await this.updateClass(classInstance.id, {
+          ...classInstance,
+          active: true
+        });
+      }
+
+      // Handle auto-end
+      if (classInstance.autoEnd && endTime && isAfter(now, endTime)) {
+        await this.updateClass(classInstance.id, {
+          ...classInstance,
+          active: false
+        });
+
+        // Generate next occurrence for recurring classes
+        if (classInstance.scheduleType !== 'one-time') {
+          await this.generateNextOccurrence(classInstance.id);
+        }
+      }
     }
   }
 }; 

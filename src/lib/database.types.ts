@@ -52,7 +52,7 @@ export interface Database {
           student_id: string;
           check_in_time: string;
           status: 'Present' | 'Late' | 'Absent';
-          verification_method: 'QR' | 'Location' | 'Manual';
+          verification_method: 'QR' | 'Location' | 'Manual' | 'Biometric' | 'Facial' | 'NFC';
           verified_latitude: number | null;
           verified_longitude: number | null;
           created_at: string;
@@ -64,7 +64,7 @@ export interface Database {
           student_id: string;
           check_in_time: string;
           status: 'Present' | 'Late' | 'Absent';
-          verification_method: 'QR' | 'Location' | 'Manual';
+          verification_method: 'QR' | 'Location' | 'Manual' | 'Biometric' | 'Facial' | 'NFC';
           verified_latitude?: number | null;
           verified_longitude?: number | null;
           created_at?: string;
@@ -76,7 +76,7 @@ export interface Database {
           student_id?: string;
           check_in_time?: string;
           status?: 'Present' | 'Late' | 'Absent';
-          verification_method?: 'QR' | 'Location' | 'Manual';
+          verification_method?: 'QR' | 'Location' | 'Manual' | 'Biometric' | 'Facial' | 'NFC';
           verified_latitude?: number | null;
           verified_longitude?: number | null;
           created_at?: string;
@@ -121,7 +121,7 @@ export interface Database {
     };
     Enums: {
       attendance_status: 'Present' | 'Late' | 'Absent';
-      verification_method: 'QR' | 'Location' | 'Manual';
+      verification_method: 'QR' | 'Location' | 'Manual' | 'Biometric' | 'Facial' | 'NFC';
       user_role: 'student' | 'lecturer';
     };
   };
