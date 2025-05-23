@@ -15,6 +15,13 @@ export interface Database {
           qr_code_value: string | null;
           qr_code_expiry: number | null;
           created_at: string;
+          schedule_type: string;
+          recurrence_pattern: any | null;
+          duration_minutes: number;
+          grace_period_minutes: number;
+          auto_start: boolean;
+          auto_end: boolean;
+          next_occurrence: string | null;
         };
         Insert: {
           id?: string;
@@ -29,6 +36,13 @@ export interface Database {
           qr_code_value?: string | null;
           qr_code_expiry?: number | null;
           created_at?: string;
+          schedule_type?: string;
+          recurrence_pattern?: any | null;
+          duration_minutes?: number;
+          grace_period_minutes?: number;
+          auto_start?: boolean;
+          auto_end?: boolean;
+          next_occurrence?: string | null;
         };
         Update: {
           id?: string;
@@ -43,6 +57,13 @@ export interface Database {
           qr_code_value?: string | null;
           qr_code_expiry?: number | null;
           created_at?: string;
+          schedule_type?: string;
+          recurrence_pattern?: any | null;
+          duration_minutes?: number;
+          grace_period_minutes?: number;
+          auto_start?: boolean;
+          auto_end?: boolean;
+          next_occurrence?: string | null;
         };
       };
       attendance_records: {

@@ -1,7 +1,8 @@
 import { supabase, handleSupabaseError } from '@/lib/supabase';
-import type { Class, RecurrencePattern } from '@/lib/types';
+import type { Class, RecurrencePattern, ScheduleType } from '@/lib/types';
 import type { Tables, InsertDTO, UpdateDTO } from '@/lib/database.types';
 import { addDays, addWeeks, addMonths, isAfter, isBefore, parseISO } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
 // Mapper to convert database rows to application types
 const mapToClass = (row: Tables<'classes'>): Class => ({
@@ -18,13 +19,13 @@ const mapToClass = (row: Tables<'classes'>): Class => ({
   qrCodeValue: row.qr_code_value || undefined,
   qrCodeExpiry: row.qr_code_expiry || undefined,
   createdAt: row.created_at,
-  scheduleType: row.schedule_type,
+  scheduleType: row.schedule_type as ScheduleType,
   recurrencePattern: row.recurrence_pattern,
   durationMinutes: row.duration_minutes,
   gracePeriodMinutes: row.grace_period_minutes,
   autoStart: row.auto_start,
   autoEnd: row.auto_end,
-  nextOccurrence: row.next_occurrence
+  nextOccurrence: row.next_occurrence as string | undefined
 });
 
 // Mapper to convert application types to database rows
@@ -33,7 +34,7 @@ const mapToClassRow = (classData: Class): InsertDTO<'classes'> => ({
   name: classData.name,
   latitude: classData.location?.latitude || null,
   longitude: classData.location?.longitude || null,
-  distance_threshold: classData.distanceThreshold,
+  distance_threshold: classData.distanceThreshold ?? 100,
   start_time: classData.startTime,
   end_time: classData.endTime || null,
   active: classData.active,
@@ -41,13 +42,13 @@ const mapToClassRow = (classData: Class): InsertDTO<'classes'> => ({
   qr_code_value: classData.qrCodeValue || null,
   qr_code_expiry: classData.qrCodeExpiry || null,
   created_at: classData.createdAt,
-  schedule_type: classData.scheduleType,
-  recurrence_pattern: classData.recurrencePattern,
-  duration_minutes: classData.durationMinutes,
-  grace_period_minutes: classData.gracePeriodMinutes,
-  auto_start: classData.autoStart,
-  auto_end: classData.autoEnd,
-  next_occurrence: classData.nextOccurrence
+  schedule_type: classData.scheduleType ?? 'one-time',
+  recurrence_pattern: classData.recurrencePattern ?? null,
+  duration_minutes: classData.durationMinutes ?? 60,
+  grace_period_minutes: classData.gracePeriodMinutes ?? 15,
+  auto_start: classData.autoStart ?? false,
+  auto_end: classData.autoEnd ?? false,
+  next_occurrence: classData.nextOccurrence || null
 });
 
 // Ensure API key is included in all requests
@@ -158,9 +159,18 @@ export const classService = {
       }
 
       // Generate UUID on client side or use the provided ID
-      const newClass = {
+      const now = new Date().toISOString();
+      const newClass: Class = {
         ...classData,
-        id: specificId || crypto.randomUUID()
+        id: specificId || uuidv4(),
+        createdAt: (classData as any).createdAt || now,
+        scheduleType: (classData as any).scheduleType || 'one-time',
+        durationMinutes: (classData as any).durationMinutes ?? 60,
+        gracePeriodMinutes: (classData as any).gracePeriodMinutes ?? 15,
+        autoStart: (classData as any).autoStart ?? false,
+        autoEnd: (classData as any).autoEnd ?? false,
+        recurrencePattern: (classData as any).recurrencePattern ?? null,
+        nextOccurrence: (classData as any).nextOccurrence || null,
       };
       
       const { data, error } = await supabase
@@ -170,15 +180,18 @@ export const classService = {
         .single();
       
       if (error) {
-        console.error("Error creating class:", error);
+        console.error("Error creating class:", error, { classData: newClass });
         throw error;
       }
       
-      if (!data) return null;
+      if (!data) {
+        console.error("No data returned from Supabase after insert", { classData: newClass });
+        return null;
+      }
       
       return mapToClass(data);
     } catch (error) {
-      console.error("Class creation error details:", error);
+      console.error("Class creation error details:", error, { classData });
       handleSupabaseError(error as Error);
       return null;
     }
@@ -208,7 +221,15 @@ export const classService = {
           location: updates.location,
           endTime: updates.endTime,
           qrCodeValue: updates.qrCodeValue,
-          qrCodeExpiry: updates.qrCodeExpiry
+          qrCodeExpiry: updates.qrCodeExpiry,
+          createdAt: updates.createdAt || new Date().toISOString(),
+          scheduleType: updates.scheduleType || 'one-time',
+          durationMinutes: updates.durationMinutes || 60,
+          gracePeriodMinutes: updates.gracePeriodMinutes || 15,
+          autoStart: updates.autoStart || false,
+          autoEnd: updates.autoEnd || false,
+          recurrencePattern: updates.recurrencePattern || undefined,
+          nextOccurrence: updates.nextOccurrence || undefined
         };
         
         try {

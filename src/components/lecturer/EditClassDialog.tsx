@@ -277,8 +277,8 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
               <option value="weekly">Weekly</option>
               <option value="custom">Custom</option>
             </select>
-          </div>
-
+              </div>
+              
           {/* Recurrence Pattern Fields (only for custom) */}
           {scheduleTypeValue === 'custom' && (
             <div className="space-y-4 p-4 border rounded-md bg-muted/50">

@@ -56,6 +56,7 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const [formError, setFormError] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors }, control } = useForm<ClassFormData>({
     resolver: zodResolver(classFormSchema),
@@ -220,8 +221,10 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
       
       reset();
       setShowLocationFields(false);
+      setFormError(null);
     } catch (error) {
       console.error("Error creating class:", error);
+      setFormError(error instanceof Error ? error.message : "An unknown error occurred");
       toast({ 
         title: "Error Creating Class", 
         description: error instanceof Error ? error.message : "An unknown error occurred", 
@@ -233,14 +236,20 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
   };
 
   return (
-    <Card className="w-full max-w-lg shadow-lg">
+    <Card className="w-full max-w-lg shadow-lg max-h-[90vh] flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-center text-2xl">
           <PlusCircle className="mr-2 h-6 w-6 text-primary" /> Create New Class
         </CardTitle>
       </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+        <CardContent className="space-y-6 overflow-y-auto flex-1">
+          {/* Error message area */}
+          {formError && (
+            <div className="bg-destructive/10 border border-destructive text-destructive rounded p-2 mb-2 text-sm">
+              {formError}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="name">Class Name</Label>
             <Input id="name" {...register('name')} placeholder="e.g., Introduction to AI" className={errors.name ? 'border-destructive' : ''} />
@@ -436,7 +445,7 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
             </div>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="sticky bottom-0 left-0 right-0 bg-background z-10 border-t p-4">
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
