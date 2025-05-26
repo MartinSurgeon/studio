@@ -38,7 +38,7 @@ export interface Class {
 }
 
 export type AttendanceStatus = 'Present' | 'Late' | 'Absent';
-export type VerificationMethod = 'QR' | 'Location' | 'Manual';
+export type VerificationMethod = 'QR' | 'Location' | 'Manual' | 'Biometric' | 'Facial' | 'NFC';
 
 export interface AttendanceRecord {
   id: string;

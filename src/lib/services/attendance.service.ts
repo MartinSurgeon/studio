@@ -1,5 +1,5 @@
 import { supabase, handleSupabaseError } from '@/lib/supabase';
-import type { AttendanceRecord, GeoLocation } from '@/lib/types';
+import type { AttendanceRecord, GeoLocation, VerificationMethod } from '@/lib/types';
 import type { Tables, InsertDTO, UpdateDTO } from '@/lib/database.types';
 
 // Device ID storage key
@@ -60,8 +60,6 @@ const mapToAttendanceRow = (record: AttendanceRecord): InsertDTO<'attendance_rec
   
   return rowData as InsertDTO<'attendance_records'>;
 };
-
-export type VerificationMethod = 'QR' | 'Location' | 'Manual' | 'Biometric' | 'Facial' | 'NFC';
 
 // Service functions
 export const attendanceService = {
@@ -438,106 +436,67 @@ export const attendanceService = {
         .select('*')
         .eq('id', classId)
         .single();
-      
       if (classError) throw classError;
       if (!classData) {
         return { success: false, message: 'Class not found' };
       }
-      
+      // Enforce verification method
+      if (!classData.latitude || !classData.longitude) {
+        return { success: false, message: 'Class does not support location-based attendance' };
+      }
+      // Enforce active status
       if (!classData.active) {
         return { success: false, message: 'Class is not active' };
       }
-      
-      if (!classData.latitude || !classData.longitude) {
-        return { success: false, message: 'Class has no location set' };
+      // Enforce duration and grace period
+      const now = new Date();
+      const classStartTime = new Date(classData.start_time);
+      const durationMinutes = classData.duration_minutes || 60;
+      const gracePeriodMinutes = classData.grace_period_minutes || 15;
+      const classEndTime = new Date(classStartTime.getTime() + durationMinutes * 60000);
+      const graceEndTime = new Date(classEndTime.getTime() + gracePeriodMinutes * 60000);
+      if (now < classStartTime) {
+        return { success: false, message: 'Attendance not open yet. Please wait for the class to start.' };
       }
-      
-      // Get current device ID
-      const deviceId = getDeviceId();
-      
-      // Check if already marked attendance by this student
-      const { data: existingStudentRecord, error: studentRecordError } = await supabase
-        .from('attendance_records')
-        .select('*')
-        .eq('class_id', classId)
-        .eq('student_id', studentId)
-        .maybeSingle();
-      
-      if (studentRecordError) throw studentRecordError;
-      
-      if (existingStudentRecord) {
-        return { success: false, message: 'Attendance already marked for this student ID' };
+      if (now > graceEndTime) {
+        return { success: false, message: 'Attendance window has closed for this class.' };
       }
-      
-      // Check if already marked attendance from this device
-      try {
-        const { data: existingDeviceRecord, error: deviceRecordError } = await supabase
-          .from('attendance_records')
-          .select('*')
-          .eq('class_id', classId)
-          .eq('device_id', deviceId)
-          .maybeSingle();
-        
-        if (deviceRecordError) {
-          // If there's an error about the missing column, we'll log but continue
-          if (deviceRecordError.message?.includes('column') && deviceRecordError.message?.includes('does not exist')) {
-            console.warn('AttendanceService: device_id column might be missing during location check');
-          } else {
-            throw deviceRecordError;
-          }
-        } else if (existingDeviceRecord) {
-          return { success: false, message: 'Attendance already marked from this device' };
-        }
-      } catch (error) {
-        // Only rethrow if it's not a column-related error
-        if (!(error instanceof Error && error.message?.includes('column') && error.message?.includes('does not exist'))) {
-          throw error;
-        }
-      }
-      
       // Calculate distance between class location and current location
       const classLocation = { 
         latitude: classData.latitude, 
         longitude: classData.longitude 
       };
-      
       const distance = calculateDistance(
         classLocation.latitude,
         classLocation.longitude,
         currentLocation.latitude,
         currentLocation.longitude
       );
-      
-      // Check if within threshold - handle database vs model naming discrepancy
-      // In DB it's distance_threshold, in model it's distanceThreshold
-      const threshold = classData.distance_threshold || 100; // Default to 100m if not set
+      const threshold = classData.distance_threshold || 100;
       const isWithinThreshold = distance <= threshold;
-      
-      // Determine status (Present or Late)
-      const now = new Date();
-      const classStartTime = new Date(classData.start_time);
-      const isLate = now > classStartTime;
-      
-      // Check for testing mode in dev environment to bypass distance check
-      const isTestEnv = process.env.NODE_ENV === 'development';
-      
-      // Only mark attendance if within threshold or in test environment
-      if (!isWithinThreshold && !isTestEnv) {
+      // Only mark attendance if within threshold
+      if (!isWithinThreshold) {
         return { 
           success: false, 
-          message: `You are too far from the class location (${Math.round(distance)}m away, threshold is ${threshold}m)`,
-          details: {
-            distance: Math.round(distance),
-            threshold: threshold,
-            withinRange: false,
-            classLocation: classLocation
-          }
+          message: `You are too far from the class location (${Math.round(distance)}m away, threshold is ${threshold}m)`
         };
       }
-      
-      // Only proceed with attendance marking if within threshold or in test environment
-      const status = isLate ? 'Late' : 'Present';
-      
+      // Determine status
+      let status: 'Present' | 'Late' = 'Present';
+      if (now > classEndTime && now <= graceEndTime) {
+        status = 'Late';
+      }
+      // Check for existing attendance
+      const deviceId = getDeviceId();
+      const { data: existingStudentRecord } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('class_id', classId)
+        .eq('student_id', studentId)
+        .maybeSingle();
+      if (existingStudentRecord) {
+        return { success: false, message: 'Attendance already marked for this student ID' };
+      }
       // Create attendance record
       const newRecord: Omit<AttendanceRecord, 'id'> = {
         classId: classId,
@@ -548,37 +507,14 @@ export const attendanceService = {
         verifiedLocation: currentLocation,
         deviceId: deviceId
       };
-      
       const createdRecord = await this.createAttendanceRecord(newRecord);
-      
       if (!createdRecord) {
-        return { 
-          success: false, 
-          message: 'Failed to create attendance record',
-          details: {
-            distance: Math.round(distance),
-            threshold: threshold,
-            withinRange: isWithinThreshold,
-            classLocation: classLocation
-          }
-        };
+        return { success: false, message: 'Failed to create attendance record' };
       }
-      
-      // Provide distance information even on success
-      const successMessage = isWithinThreshold
-        ? `Attendance marked as ${status} (${Math.round(distance)}m from class location)`
-        : `Attendance marked as ${status} in test mode (actual distance: ${Math.round(distance)}m)`;
-      
       return { 
         success: true, 
         record: createdRecord,
-        message: successMessage,
-        details: {
-          distance: Math.round(distance),
-          threshold: threshold,
-          withinRange: isWithinThreshold,
-          classLocation: classLocation
-        }
+        message: `Attendance marked as ${status}`
       };
     } catch (error) {
       handleSupabaseError(error as Error);
@@ -622,7 +558,7 @@ export const attendanceService = {
       };
 
       const createdRecord = await this.createAttendanceRecord(newRecord);
-      return { success: true, record: createdRecord };
+      return { success: true, record: createdRecord || undefined };
     } catch (error) {
       console.error('Biometric attendance error:', error);
       return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
@@ -665,7 +601,7 @@ export const attendanceService = {
       };
 
       const createdRecord = await this.createAttendanceRecord(newRecord);
-      return { success: true, record: createdRecord };
+      return { success: true, record: createdRecord || undefined };
     } catch (error) {
       console.error('Facial attendance error:', error);
       return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
@@ -708,7 +644,7 @@ export const attendanceService = {
       };
 
       const createdRecord = await this.createAttendanceRecord(newRecord);
-      return { success: true, record: createdRecord };
+      return { success: true, record: createdRecord || undefined };
     } catch (error) {
       console.error('NFC attendance error:', error);
       return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
