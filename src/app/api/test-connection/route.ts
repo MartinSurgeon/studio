@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   const results = {
-    supabase: { status: 'unknown', error: null, data: null }
+    supabase: { status: 'unknown', error: '', data: null }
   };
 
   // Test Supabase
