@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
 export async function GET() {
-  const results = {
+  const results: { 
+    supabase: { 
+      status: string; 
+      error: string | null; 
+      data: { count: number } | null 
+    } 
+  } = {
     supabase: { status: 'unknown', error: '', data: null }
   };
 
