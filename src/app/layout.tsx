@@ -1,19 +1,11 @@
 import type {Metadata, Viewport} from 'next';
-import {Geist, Geist_Mono} from 'next/font/google';
+import {Inter} from 'next/font/google';
 import './globals.css';
 import { AppProvider } from '@/contexts/AppContext';
 import { Toaster } from "@/components/ui/toaster";
 import BackgroundServiceProvider from '@/components/core/BackgroundServiceProvider';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+const inter = Inter({ subsets: ['latin'] });
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -24,8 +16,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Trakzy',
-  description: 'Smart Attendance System',
+  title: 'GeoAttend',
+  description: 'Attendance tracking system',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -56,7 +48,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body 
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={inter.className}
         suppressHydrationWarning={true}
       >
         <AppProvider>

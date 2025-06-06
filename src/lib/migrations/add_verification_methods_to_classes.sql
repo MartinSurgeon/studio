@@ -1,0 +1,1 @@
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS verification_methods TEXT[] DEFAULT ARRAY['QR']; 

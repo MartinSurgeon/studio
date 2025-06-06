@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,6 +19,19 @@ export default function AttendanceVerification({ classInstance, studentId, onAtt
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('qr');
+
+  // Filter verification methods based on what's enabled for the class
+  const enabledMethods = classInstance.verification_methods || ['QR'];
+  const availableTabs = VERIFICATION_METHODS.filter(method => 
+    enabledMethods.includes(method.key)
+  );
+
+  // Set initial active tab to first available method
+  useEffect(() => {
+    if (availableTabs.length > 0 && !availableTabs.find(tab => tab.key === activeTab)) {
+      setActiveTab(availableTabs[0].key.toLowerCase());
+    }
+  }, [availableTabs, activeTab]);
 
   const handleQrScan = async (decodedText: string) => {
     if (!classInstance.qrCodeValue || !classInstance.qrCodeExpiry) {
@@ -204,72 +217,64 @@ export default function AttendanceVerification({ classInstance, studentId, onAtt
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-5 gap-4">
-            <TabsTrigger value="qr">
-              <QrCode className="h-4 w-4 mr-2" />
-              QR Code
-            </TabsTrigger>
-            <TabsTrigger value="location">
-              <MapPin className="h-4 w-4 mr-2" />
-              Location
-            </TabsTrigger>
-            <TabsTrigger value="biometric">
-              <Fingerprint className="h-4 w-4 mr-2" />
-              Biometric
-            </TabsTrigger>
-            <TabsTrigger value="facial">
-              <Camera className="h-4 w-4 mr-2" />
-              Facial
-            </TabsTrigger>
-            <TabsTrigger value="nfc">
-              <CreditCard className="h-4 w-4 mr-2" />
-              NFC
-            </TabsTrigger>
+            {availableTabs.map((method) => (
+              <TabsTrigger key={method.key} value={method.key.toLowerCase()}>
+                {method.icon && <method.icon className="h-4 w-4 mr-2" />}
+                {method.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
-          <TabsContent value="qr" className="mt-4">
-            <QrScanner onScanSuccess={handleQrScan} onScanError={(error) => console.error(error)} />
-          </TabsContent>
-
-          <TabsContent value="location" className="mt-4">
-            <Button
-              onClick={handleLocationVerification}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? <LoadingSpinner /> : 'Verify Location'}
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="biometric" className="mt-4">
-            <Button
-              onClick={handleBiometricVerification}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? <LoadingSpinner /> : 'Verify Biometric'}
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="facial" className="mt-4">
-            <Button
-              onClick={handleFacialVerification}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? <LoadingSpinner /> : 'Verify Face'}
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="nfc" className="mt-4">
-            <Button
-              onClick={handleNFCVerification}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? <LoadingSpinner /> : 'Scan NFC'}
-            </Button>
-          </TabsContent>
+          {availableTabs.map((method) => (
+            <TabsContent key={method.key} value={method.key.toLowerCase()} className="mt-4">
+              {method.key === 'QR' && (
+                <QrScanner onScanSuccess={handleQrScan} onScanError={(error) => console.error(error)} />
+              )}
+              {method.key === 'Location' && (
+                <Button
+                  onClick={handleLocationVerification}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? <LoadingSpinner /> : 'Verify Location'}
+                </Button>
+              )}
+              {method.key === 'Biometric' && (
+                <Button
+                  onClick={handleBiometricVerification}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? <LoadingSpinner /> : 'Verify Biometric'}
+                </Button>
+              )}
+              {method.key === 'Facial' && (
+                <Button
+                  onClick={handleFacialVerification}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? <LoadingSpinner /> : 'Verify Face'}
+                </Button>
+              )}
+              {method.key === 'NFC' && (
+                <Button
+                  onClick={handleNFCVerification}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? <LoadingSpinner /> : 'Scan NFC'}
+                </Button>
+              )}
+            </TabsContent>
+          ))}
         </Tabs>
+        {isLoading && (
+          <div className="flex items-center gap-2 text-blue-600 text-sm animate-pulse mb-2">
+            <svg className="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /></svg>
+            Processing, please wait...
+          </div>
+        )}
       </CardContent>
     </Card>
   );

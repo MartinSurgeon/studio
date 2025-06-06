@@ -6,7 +6,7 @@ BEGIN
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'verification_method') THEN
-        CREATE TYPE verification_method AS ENUM ('QR', 'Location', 'Manual');
+        CREATE TYPE verification_method AS ENUM ('QR', 'Location', 'Manual', 'Biometric', 'Facial', 'NFC');
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN

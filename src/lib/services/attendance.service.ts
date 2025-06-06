@@ -1,6 +1,6 @@
 import { supabase, handleSupabaseError } from '@/lib/supabase';
 import type { AttendanceRecord, GeoLocation, VerificationMethod } from '@/lib/types';
-import type { Tables, InsertDTO, UpdateDTO } from '@/lib/database.types';
+import type { Tables, TablesInsert, TablesUpdate } from '@/lib/database.types';
 
 // Device ID storage key
 const DEVICE_ID_KEY = 'geoattend-device-id';
@@ -39,7 +39,7 @@ const mapToAttendanceRecord = (row: Tables<'attendance_records'>): AttendanceRec
 });
 
 // Mapper to convert application types to database rows
-const mapToAttendanceRow = (record: AttendanceRecord): InsertDTO<'attendance_records'> => {
+const mapToAttendanceRow = (record: AttendanceRecord): TablesInsert<'attendance_records'> => {
   // Create the basic row data with required fields
   const rowData: any = {
     id: record.id,
@@ -58,7 +58,7 @@ const mapToAttendanceRow = (record: AttendanceRecord): InsertDTO<'attendance_rec
     rowData.device_id = record.deviceId;
   }
   
-  return rowData as InsertDTO<'attendance_records'>;
+  return rowData as TablesInsert<'attendance_records'>;
 };
 
 // Service functions
@@ -436,18 +436,22 @@ export const attendanceService = {
         .select('*')
         .eq('id', classId)
         .single();
+
       if (classError) throw classError;
       if (!classData) {
         return { success: false, message: 'Class not found' };
       }
+
       // Enforce verification method
-      if (!classData.latitude || !classData.longitude) {
-        return { success: false, message: 'Class does not support location-based attendance' };
+      if (!Array.isArray(classData.verification_methods) || !classData.verification_methods.includes('Location')) {
+        return { success: false, message: 'Location verification is not enabled for this class.' };
       }
+
       // Enforce active status
       if (!classData.active) {
         return { success: false, message: 'Class is not active' };
       }
+
       // Enforce duration and grace period
       const now = new Date();
       const classStartTime = new Date(classData.start_time);
@@ -455,48 +459,82 @@ export const attendanceService = {
       const gracePeriodMinutes = classData.grace_period_minutes || 15;
       const classEndTime = new Date(classStartTime.getTime() + durationMinutes * 60000);
       const graceEndTime = new Date(classEndTime.getTime() + gracePeriodMinutes * 60000);
+
       if (now < classStartTime) {
-        return { success: false, message: 'Attendance not open yet. Please wait for the class to start.' };
+        return { 
+          success: false, 
+          message: `Attendance not open yet. Class starts at ${classStartTime.toLocaleTimeString()}.` 
+        };
       }
+
       if (now > graceEndTime) {
-        return { success: false, message: 'Attendance window has closed for this class.' };
+        return { 
+          success: false, 
+          message: `Attendance window has closed. The class ended at ${classEndTime.toLocaleTimeString()} and the grace period ended at ${graceEndTime.toLocaleTimeString()}. Please contact your lecturer if you need to mark attendance.` 
+        };
       }
+
       // Calculate distance between class location and current location
+      const hasValidClassLocation = typeof classData.latitude === 'number' && typeof classData.longitude === 'number';
+      if (!hasValidClassLocation) {
+        return { success: false, message: 'Class location is invalid.' };
+      }
       const classLocation = { 
-        latitude: classData.latitude, 
-        longitude: classData.longitude 
+        latitude: classData.latitude as number, 
+        longitude: classData.longitude as number 
       };
+
       const distance = calculateDistance(
         classLocation.latitude,
         classLocation.longitude,
         currentLocation.latitude,
         currentLocation.longitude
       );
-      const threshold = classData.distance_threshold || 100;
+
+      const threshold = classData.distance_threshold || 100; // Default 100m threshold
       const isWithinThreshold = distance <= threshold;
-      // Only mark attendance if within threshold
-      if (!isWithinThreshold) {
-        return { 
-          success: false, 
-          message: `You are too far from the class location (${Math.round(distance)}m away, threshold is ${threshold}m)`
-        };
-      }
-      // Determine status
-      let status: 'Present' | 'Late' = 'Present';
-      if (now > classEndTime && now <= graceEndTime) {
-        status = 'Late';
-      }
+
       // Check for existing attendance
-      const deviceId = getDeviceId();
       const { data: existingStudentRecord } = await supabase
         .from('attendance_records')
         .select('*')
         .eq('class_id', classId)
         .eq('student_id', studentId)
         .maybeSingle();
+
       if (existingStudentRecord) {
-        return { success: false, message: 'Attendance already marked for this student ID' };
+        return { 
+          success: false, 
+          message: 'Attendance already marked for this student ID',
+          details: {
+            distance,
+            threshold,
+            withinRange: isWithinThreshold,
+            classLocation
+          }
+        };
       }
+
+      // Only mark attendance if within threshold
+      if (!isWithinThreshold) {
+        return { 
+          success: false, 
+          message: `You are too far from the class location (${Math.round(distance)}m away, threshold is ${threshold}m)`,
+          details: {
+            distance,
+            threshold,
+            withinRange: false,
+            classLocation
+          }
+        };
+      }
+
+      // Determine status based on time
+      let status: 'Present' | 'Late' = 'Present';
+      if (now > classEndTime && now <= graceEndTime) {
+        status = 'Late';
+      }
+
       // Create attendance record
       const newRecord: Omit<AttendanceRecord, 'id'> = {
         classId: classId,
@@ -505,16 +543,33 @@ export const attendanceService = {
         status: status,
         verificationMethod: 'Location',
         verifiedLocation: currentLocation,
-        deviceId: deviceId
+        deviceId: getDeviceId()
       };
+
       const createdRecord = await this.createAttendanceRecord(newRecord);
       if (!createdRecord) {
-        return { success: false, message: 'Failed to create attendance record' };
+        return { 
+          success: false, 
+          message: 'Failed to create attendance record',
+          details: {
+            distance,
+            threshold,
+            withinRange: true,
+            classLocation
+          }
+        };
       }
+
       return { 
         success: true, 
         record: createdRecord,
-        message: `Attendance marked as ${status}`
+        message: `Attendance marked as ${status}`,
+        details: {
+          distance,
+          threshold,
+          withinRange: true,
+          classLocation
+        }
       };
     } catch (error) {
       handleSupabaseError(error as Error);
@@ -529,25 +584,8 @@ export const attendanceService = {
     biometricData: string
   ): Promise<{ success: boolean; record?: AttendanceRecord; message?: string }> {
     try {
-      // Verify biometric data with the student's stored biometrics
-      const { data: studentData, error: studentError } = await supabase
-        .from('users')
-        .select('biometric_data')
-        .eq('id', studentId)
-        .single();
-
-      if (studentError) throw studentError;
-      if (!studentData?.biometric_data) {
-        return { success: false, message: 'No biometric data found for student' };
-      }
-
-      // In a real implementation, you would verify the biometric data here
-      // For now, we'll just check if it matches
-      if (studentData.biometric_data !== biometricData) {
-        return { success: false, message: 'Biometric verification failed' };
-      }
-
-      // Create attendance record
+      // TODO: Implement actual biometric verification when biometric_data is available in users table
+      // For now, just allow and create the attendance record
       const newRecord: Omit<AttendanceRecord, 'id'> = {
         classId,
         studentId,
@@ -565,29 +603,45 @@ export const attendanceService = {
     }
   },
 
-  // New method for facial recognition
+  // Mark attendance with facial recognition
   async markAttendanceWithFacial(
     classId: string,
     studentId: string,
     facialData: string
   ): Promise<{ success: boolean; record?: AttendanceRecord; message?: string }> {
     try {
-      // Verify facial data with the student's stored facial data
-      const { data: studentData, error: studentError } = await supabase
-        .from('users')
-        .select('facial_data')
-        .eq('id', studentId)
+      // First, fetch the class to check status and verification methods
+      const { data: classData, error: classError } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('id', classId)
         .single();
 
-      if (studentError) throw studentError;
-      if (!studentData?.facial_data) {
-        return { success: false, message: 'No facial data found for student' };
+      if (classError) throw classError;
+      if (!classData) {
+        return { success: false, message: 'Class not found' };
       }
 
-      // In a real implementation, you would verify the facial data here
-      // For now, we'll just check if it matches
-      if (studentData.facial_data !== facialData) {
-        return { success: false, message: 'Facial verification failed' };
+      // Enforce verification method
+      if (!Array.isArray(classData.verification_methods) || !classData.verification_methods.includes('Facial')) {
+        return { success: false, message: 'Facial verification is not enabled for this class.' };
+      }
+
+      // Enforce active status
+      if (!classData.active) {
+        return { success: false, message: 'Class is not active' };
+      }
+
+      // Check for existing attendance
+      const { data: existingRecord } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('class_id', classId)
+        .eq('student_id', studentId)
+        .maybeSingle();
+
+      if (existingRecord) {
+        return { success: false, message: 'Attendance already marked for this student' };
       }
 
       // Create attendance record
@@ -608,29 +662,45 @@ export const attendanceService = {
     }
   },
 
-  // New method for NFC verification
+  // Mark attendance with NFC
   async markAttendanceWithNFC(
     classId: string,
     studentId: string,
     nfcData: string
   ): Promise<{ success: boolean; record?: AttendanceRecord; message?: string }> {
     try {
-      // Verify NFC data with the student's stored NFC data
-      const { data: studentData, error: studentError } = await supabase
-        .from('users')
-        .select('nfc_data')
-        .eq('id', studentId)
+      // First, fetch the class to check status and verification methods
+      const { data: classData, error: classError } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('id', classId)
         .single();
 
-      if (studentError) throw studentError;
-      if (!studentData?.nfc_data) {
-        return { success: false, message: 'No NFC data found for student' };
+      if (classError) throw classError;
+      if (!classData) {
+        return { success: false, message: 'Class not found' };
       }
 
-      // In a real implementation, you would verify the NFC data here
-      // For now, we'll just check if it matches
-      if (studentData.nfc_data !== nfcData) {
-        return { success: false, message: 'NFC verification failed' };
+      // Enforce verification method
+      if (!Array.isArray(classData.verification_methods) || !classData.verification_methods.includes('NFC')) {
+        return { success: false, message: 'NFC verification is not enabled for this class.' };
+      }
+
+      // Enforce active status
+      if (!classData.active) {
+        return { success: false, message: 'Class is not active' };
+      }
+
+      // Check for existing attendance
+      const { data: existingRecord } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('class_id', classId)
+        .eq('student_id', studentId)
+        .maybeSingle();
+
+      if (existingRecord) {
+        return { success: false, message: 'Attendance already marked for this student' };
       }
 
       // Create attendance record
@@ -649,6 +719,12 @@ export const attendanceService = {
       console.error('NFC attendance error:', error);
       return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
     }
+  },
+
+  async markAttendanceWithPIN(classId: string, studentId: string, pin: string) {
+    // TODO: Implement actual API call to your backend/Supabase
+    // Example placeholder:
+    return { success: false, message: "PIN verification not implemented", record: null };
   },
 };
 

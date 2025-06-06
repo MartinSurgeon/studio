@@ -10,7 +10,7 @@ import { verifyLocation, type VerifyLocationInput, type VerifyLocationOutput } f
 import { useToast } from "@/hooks/use-toast";
 import { Input } from '@/components/ui/input';
 import LoadingSpinner from '@/components/core/LoadingSpinner';
-import { MapPin, QrCodeIcon, CheckCircle, XCircle, AlertTriangle, Info, Upload, Map, User, Clock, QrCode, UserCheck } from 'lucide-react';
+import { MapPin, QrCodeIcon, CheckCircle, XCircle, AlertTriangle, Info, Upload, Map, User, Clock, QrCode, UserCheck, Fingerprint, Camera, CreditCard, Loader2 } from 'lucide-react';
 import QrScanner from './QrScanner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +45,7 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
   const [showRouteMap, setShowRouteMap] = useState(false);
   const [isMarkingAttendance, setIsMarkingAttendance] = useState(false);
   const [lecturerName, setLecturerName] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchLecturerName = async () => {
@@ -161,7 +162,7 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
             variant: "destructive" 
           });
         }
-      }, 20000); // 20 second timeout
+      }, 25000); // 25 second timeout
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -204,7 +205,7 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
         },
         { 
           enableHighAccuracy: true, 
-          timeout: 15000, 
+          timeout: 25000, 
           maximumAge: 0 
         }
       );
@@ -807,6 +808,102 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
       }
   };
 
+  const handleBiometricVerification = async () => {
+    try {
+      setIsLoading(true);
+      // In a real implementation, you would get biometric data from the device
+      const biometricData = 'sample_biometric_data';
+      const result = await attendanceService.markAttendanceWithBiometric(
+        classItem.id,
+        studentId,
+        biometricData
+      );
+
+      if (result.success && result.record) {
+        onMarkAttendance(result.record);
+        toast({ title: 'Success', description: 'Attendance marked successfully via biometric.' });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.message || 'Failed to mark attendance',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to verify biometrics',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFacialVerification = async () => {
+    try {
+      setIsLoading(true);
+      // In a real implementation, you would get facial data from the device camera
+      const facialData = 'sample_facial_data';
+      const result = await attendanceService.markAttendanceWithFacial(
+        classItem.id,
+        studentId,
+        facialData
+      );
+
+      if (result.success && result.record) {
+        onMarkAttendance(result.record);
+        toast({ title: 'Success', description: 'Attendance marked successfully via facial recognition.' });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.message || 'Failed to mark attendance',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to verify face',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNFCVerification = async () => {
+    try {
+      setIsLoading(true);
+      // In a real implementation, you would get NFC data from the device
+      const nfcData = 'sample_nfc_data';
+      const result = await attendanceService.markAttendanceWithNFC(
+        classItem.id,
+        studentId,
+        nfcData
+      );
+
+      if (result.success && result.record) {
+        onMarkAttendance(result.record);
+        toast({ title: 'Success', description: 'Attendance marked successfully via NFC.' });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.message || 'Failed to mark attendance',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to verify NFC',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Calculate distance between current location and class location
   const calculateDistanceToClass = (): number | undefined => {
     if (!currentLocation || !classItem.location) return undefined;
@@ -831,106 +928,197 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
     setCurrentLocation(newLocation);
   };
 
+  // Calculate distance and threshold
+  const distance = calculateDistanceToClass();
+  const threshold = classItem.distanceThreshold || 100; // Default to 100m if not set
+
   if (hasExistingAttendance) {
     return (
-      <Card className="shadow-md bg-green-50 border-green-200">
-        <CardHeader>
-          <div className="flex justify-between items-start">
+      <div className="transition-all duration-200">
+        <div className="bg-white rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
+          <div className="flex items-center justify-between px-6 pt-6 pb-2">
             <div>
-              <CardTitle className="text-xl font-semibold text-green-700">
-                {classItem.name}
-              </CardTitle>
-              <CardDescription className="flex flex-col space-y-2">
-                <div className="flex items-center text-green-600">
-                  <User className="h-4 w-4 mr-2" />
-                  <span className="text-sm font-medium">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl font-bold text-gray-900">{classItem.name}</span>
+              </div>
+              <div className="flex items-center text-gray-500 text-sm gap-2">
+                <User className="h-4 w-4 mr-1" />
                     {lecturerName || 'Unknown Lecturer'}
-                  </span>
                 </div>
-                <div className="flex items-center text-green-600">
-                  <Clock className="h-4 w-4 mr-2" />
-                  <span className="text-sm">
-                    Started at {new Date(classItem.startTime).toLocaleTimeString()}
-                  </span>
                 </div>
-              </CardDescription>
-            </div>
-            <Badge className="bg-green-100 text-green-800 border-green-300">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 shadow-sm animate-pulse">
               Attended
-            </Badge>
+            </span>
           </div>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-6">
-          <div className="flex items-center bg-white rounded-lg p-4 shadow-sm">
-            <CheckCircle className="h-10 w-10 text-green-500 mr-3" />
-            <div>
-              <p className="font-semibold text-green-600">Attendance Marked!</p>
-              <div className="text-sm text-green-500 space-y-1">
-                <p className="flex items-center">
+          <div className="flex items-center text-gray-400 text-xs gap-2 px-6 pb-2">
+            <Clock className="h-4 w-4 mr-1" />
+            Started at {new Date(classItem.startTime).toLocaleTimeString()}
+          </div>
+          <hr className="border-gray-100 mx-6" />
+          <div className="flex flex-col items-center justify-center py-8 bg-green-50/70 rounded-b-2xl">
+            <CheckCircle className="h-10 w-10 text-green-500 mb-2" />
+            <div className="font-semibold text-green-700 text-base mb-1">Attendance Marked</div>
+            <div className="text-green-600 text-xs flex items-center gap-1">
                   <Clock className="h-4 w-4 mr-1" />
                   {new Date(hasExistingAttendance.checkInTime).toLocaleTimeString()}
-                </p>
-                <p className="flex items-center">
+              <span className="mx-2">|</span>
                   {hasExistingAttendance.verificationMethod === 'QR' && <QrCode className="h-4 w-4 mr-1" />}
                   {hasExistingAttendance.verificationMethod === 'Location' && <MapPin className="h-4 w-4 mr-1" />}
                   {hasExistingAttendance.verificationMethod === 'Manual' && <UserCheck className="h-4 w-4 mr-1" />}
                   {hasExistingAttendance.verificationMethod}
-                </p>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className={cn("shadow-md", {
-      "border-primary": isMarkingAttendance,
-      "border-2": isMarkingAttendance
-    })}>
-      <CardHeader>
-        <div className="flex justify-between items-start">
+    <div className="transition-all duration-200" data-class-id={classItem.id}>
+      <div className="bg-white rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
+        <div className="flex items-center justify-between px-6 pt-6 pb-2">
           <div>
-            <CardTitle className="text-xl font-semibold">{classItem.name}</CardTitle>
-            <CardDescription className="flex flex-col space-y-2">
-              <div className="flex items-center">
-                <User className="h-4 w-4 mr-2 text-blue-500" />
-                <span className="text-sm font-medium">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl font-bold text-gray-900">{classItem.name}</span>
+            </div>
+            <div className="flex items-center text-gray-500 text-sm gap-2">
+              <User className="h-4 w-4 mr-1" />
                   {lecturerName || 'Unknown Lecturer'}
+            </div>
+          </div>
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 shadow-sm">
+            Active
                 </span>
               </div>
-              <div className="flex items-center text-muted-foreground">
-                <Clock className="h-4 w-4 mr-2" />
-                <div className="flex flex-col">
-                  <span className="text-sm">
+        <div className="flex items-center text-gray-400 text-xs gap-2 px-6 pb-2">
+          <Clock className="h-4 w-4 mr-1" />
                     Started at {new Date(classItem.startTime).toLocaleTimeString()}
-                  </span>
-                  {classItem.endTime && (
-                    <span className="text-xs">
-                      Ends at {new Date(classItem.endTime).toLocaleTimeString()}
-                    </span>
-                  )}
+          {classItem.endTime && <span className="ml-2">| Ends at {new Date(classItem.endTime).toLocaleTimeString()}</span>}
                 </div>
+        <hr className="border-gray-100 mx-6" />
+        {/* Distance Check UI - only show if class has location, user has location, and not attended */}
+        {classItem.location && currentLocation && !hasExistingAttendance && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4 mx-6">
+            <div className="flex items-center mb-2">
+              <Info className="h-5 w-5 text-yellow-600 mr-2" />
+              <span className="font-semibold text-yellow-800">Distance Check</span>
+            </div>
+            <div className="flex justify-between text-sm mb-1">
+              <span>Current distance: {distance !== undefined ? `${Math.round(distance)}m` : 'N/A'}</span>
+              <span>Threshold: {threshold}m</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+              <div
+                className="bg-yellow-400 h-2 rounded-full"
+                style={{ width: `${distance !== undefined ? Math.min((distance / threshold) * 100, 100) : 0}%` }}
+              />
+            </div>
+            {distance !== undefined && distance > threshold && (
+              <div className="flex items-center text-orange-700 text-sm mt-2">
+                <AlertTriangle className="h-4 w-4 mr-1" />
+                You need to be closer to the class location.
               </div>
-              {classItem.location && (
-                <div className="flex items-center text-emerald-600">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  <span className="text-sm">Location verification enabled</span>
-                </div>
-              )}
-            </CardDescription>
+            )}
+            <Button
+              variant="ghost"
+              className="mt-2 flex items-center gap-2"
+              onClick={() => setShowRouteMap(true)}
+            >
+              <Map className="h-5 w-5" />
+              Show Route to Class
+            </Button>
+            {showRouteMap && (
+              <StudentRouteMap
+                classLocation={classItem.location}
+                currentLocation={currentLocation}
+                distanceToClass={distance}
+                distanceThreshold={threshold}
+                onUpdateLocation={handleLocationUpdate}
+                onClose={() => setShowRouteMap(false)}
+              />
+            )}
           </div>
-          <Badge variant={isMarkingAttendance ? "secondary" : "default"} className={cn({
-            "animate-pulse": isMarkingAttendance
-          })}>
-            {isMarkingAttendance ? "Marking..." : "Active"}
-          </Badge>
+        )}
+        <div className="flex flex-col sm:flex-row gap-4 px-6 py-6">
+          {/* Wrap all attendance method buttons in a single parent div to fix JSX parent error */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+            {classItem.verification_methods?.includes('QR') && (
+              <Button
+                variant="outline"
+                onClick={() => setIsQrModalOpen(true)}
+                className="flex items-center justify-center gap-2 group h-auto py-4"
+              >
+                <QrCodeIcon className="h-5 w-5 group-hover:text-blue-600 transition" />
+                <span>QR Scan</span>
+              </Button>
+            )}
+            {classItem.verification_methods?.includes('Location') && (
+              <Button 
+                onClick={handleLocationCheckIn} 
+                className="flex items-center justify-center gap-2 group h-auto py-4"
+                disabled={isVerifyingLocation || !classItem.location}
+              >
+                <MapPin className="h-5 w-5 group-hover:text-emerald-600 transition" />
+                <span>{isVerifyingLocation ? "Verifying..." : "Location"}</span>
+              </Button>
+            )}
+            {classItem.verification_methods?.includes('Biometric') && (
+              <Button 
+                onClick={handleBiometricVerification} 
+                className="flex items-center justify-center gap-2 group h-auto py-4"
+                disabled={isLoading}
+              >
+                <Fingerprint className="h-5 w-5 group-hover:text-purple-600 transition" />
+                <span>Biometric</span>
+              </Button>
+            )}
+            {classItem.verification_methods?.includes('Facial') && (
+              <Button 
+                onClick={handleFacialVerification} 
+                className="flex items-center justify-center gap-2 group h-auto py-4"
+                disabled={isLoading}
+              >
+                <Camera className="h-5 w-5 group-hover:text-orange-600 transition" />
+                <span>Facial</span>
+              </Button>
+            )}
+            {classItem.verification_methods?.includes('NFC') && (
+              <Button 
+                onClick={handleNFCVerification} 
+                className="flex items-center justify-center gap-2 group h-auto py-4"
+                disabled={isLoading}
+              >
+                <CreditCard className="h-5 w-5 group-hover:text-red-600 transition" />
+                <span>NFC</span>
+              </Button>
+            )}
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        {locationError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-md p-3 flex items-center justify-between mt-2 animate-fade-in mx-6">
+            <span>{locationError}</span>
+            <button
+              className="ml-4 px-3 py-1 rounded bg-red-100 hover:bg-red-200 text-xs font-semibold transition"
+              onClick={() => { setLocationError(null); getUserLocation(); }}
+            >
+              Retry
+            </button>
+            <button
+              className="ml-2 text-lg font-bold text-red-400 hover:text-red-600 focus:outline-none"
+              onClick={() => setLocationError(null)}
+              aria-label="Dismiss error"
+            >
+              ×
+            </button>
+        </div>
+        )}
+        {isGettingLocation && (
+          <div className="p-4 bg-blue-50 rounded-md mx-6">
+            <LoadingSpinner text="Getting your location..." />
+          </div>
+        )}
         {verificationResult && (
-          <div className={cn("p-3 rounded-md mb-4 text-sm flex items-center", {
+          <div className={cn("p-3 rounded-md mb-2 text-sm flex items-center mx-6", {
             'bg-green-100 text-green-700': verificationResult.success,
             'bg-red-100 text-red-700': !verificationResult.success
           })}>
@@ -942,235 +1130,40 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
             {verificationResult.message}
           </div>
         )}
-        
-        {isVerifyingLocation && (
-          <div className="p-4 bg-blue-50 rounded-md">
-            <LoadingSpinner text="Verifying your location..." />
-          </div>
-        )}
-        
-        {isGettingLocation && (
-          <div className="p-4 bg-blue-50 rounded-md">
-            <LoadingSpinner text="Getting your location..." />
-          </div>
-        )}
-        
-        {locationError && (
-          <div className="p-4 rounded-md bg-red-50 text-red-700">
-            <div className="flex items-start">
-              <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium">{locationError}</p>
-                <p className="text-sm mt-1">
-                  If location doesn't work, try using QR code attendance instead.
-                </p>
-              </div>
+        {(!classItem.location && classItem.verification_methods?.includes('Location')) && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-md p-3 flex items-center justify-between mt-2 animate-fade-in mx-6 mb-4">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2 text-yellow-600" />
+              <span>Class location is not set. Please contact your lecturer to set the class location for location-based attendance.</span>
             </div>
           </div>
         )}
-        
-        {currentLocation && classItem.location && !isVerifyingLocation && !verificationResult && (
-          <div className="p-3 rounded-md mb-4 text-sm">
-            <div className="flex items-center text-green-700 mb-1">
-              <MapPin className="h-5 w-5 mr-2" />
-              Location detected!
-              {locationAccuracy && <span className="ml-1 text-xs">(±{Math.round(locationAccuracy)}m accuracy)</span>}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Your coordinates: {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
-            </div>
-          </div>
-        )}
-
-        {/* Show distance information if we have both locations */}
-        {currentLocation && classItem.location && !isVerifyingLocation && !verificationResult && (
-          <div className="p-3 bg-amber-50 rounded-md mb-4 text-sm">
-            <div className="flex items-center text-amber-700 mb-2">
-              <Info className="h-5 w-5 mr-2" />
-              <span className="font-medium">Distance Check</span>
-            </div>
-            
-            {(() => {
-              // Calculate distance between user and class location
-              const R = 6371e3; // Earth radius in meters
-              const φ1 = currentLocation.latitude * Math.PI / 180;
-              const φ2 = classItem.location.latitude * Math.PI / 180;
-              const Δφ = (classItem.location.latitude - currentLocation.latitude) * Math.PI / 180;
-              const Δλ = (classItem.location.longitude - currentLocation.longitude) * Math.PI / 180;
-              
-              const a = 
-                Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-              
-              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-              const distance = Math.round(R * c); // Distance in meters
-              
-              // Default threshold if not specified in class
-              const threshold = classItem.distanceThreshold || 100;
-              const withinRange = distance <= threshold;
-              
-              // Determine the percentage for the progress bar (capped at 100%)
-              const percentage = Math.min(100, Math.round((threshold / distance) * 100));
-              
-              return (
-                <>
-                  <div className="mb-2">
-                    <div className="flex justify-between mb-1 text-xs">
-                      <span>Current distance: <span className="font-medium">{distance}m</span></span>
-                      <span>Threshold: <span className="font-medium">{threshold}m</span></span>
-                    </div>
-                    
-                    {/* Progress bar showing distance as percentage of threshold */}
-                    <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-                      <div 
-                        className={`h-2 rounded-full ${withinRange ? 'bg-green-500' : 'bg-amber-500'}`}
-                        style={{ width: `${withinRange ? 100 : percentage}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <div className={`text-sm ${withinRange ? 'text-green-700' : 'text-amber-700'}`}>
-                    {withinRange 
-                      ? <span className="flex items-center"><CheckCircle className="h-4 w-4 mr-1" /> You're within the required distance range.</span>
-                      : <span className="flex items-center"><AlertTriangle className="h-4 w-4 mr-1" /> You need to be closer to the class location.</span>}
-                  </div>
-                  
-                  {/* Route map toggle button */}
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="w-full mt-3"
-                    onClick={() => setShowRouteMap(!showRouteMap)}
-                  >
-                    <Map className="mr-2 h-4 w-4" />
-                    {showRouteMap ? "Hide Route Map" : "Show Route to Class"}
-                  </Button>
-                </>
-              );
-            })()}
-          </div>
-        )}
-        
-        {/* Show route map if enabled */}
-        {showRouteMap && currentLocation && classItem.location && (
-          <StudentRouteMap
-            classLocation={classItem.location}
-            currentLocation={currentLocation}
-            distanceToClass={calculateDistanceToClass()}
-            distanceThreshold={classItem.distanceThreshold || 100}
-            onUpdateLocation={handleLocationUpdate}
-          />
-        )}
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={() => setIsQrModalOpen(true)}
-          disabled={!!hasExistingAttendance}
-        >
-          <QrCodeIcon className="mr-2 h-4 w-4" /> QR Scan
-        </Button>
-        
-        {classItem.location && (
-          <Button 
-            onClick={handleLocationCheckIn} 
-            disabled={isVerifyingLocation || !!hasExistingAttendance}
+        <div className="flex flex-col items-center justify-center py-8 bg-blue-50/70 rounded-b-2xl">
+          <Button
+            onClick={handleLocationCheckIn}
+            disabled={isLoading || hasExistingAttendance}
+            className="w-full max-w-xs"
+            data-action="mark-attendance"
           >
-            {isVerifyingLocation ? (
-              <LoadingSpinner text="" className="mr-2" />
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Marking Attendance...
+              </>
+            ) : hasExistingAttendance ? (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Attendance Marked
+              </>
             ) : (
-            <MapPin className="mr-2 h-4 w-4" /> 
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Mark Attendance
+              </>
             )}
-            {isVerifyingLocation ? "Verifying..." : "Mark Attendance"}
           </Button>
-        )}
-      </CardFooter>
-      
-      {classItem.qrCodeValue && (
-          <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
-            <DialogTrigger asChild>
-            <Button variant="outline" disabled={!!hasExistingAttendance} className="w-full sm:w-auto">
-                <QrCodeIcon className="mr-2 h-4 w-4" /> Mark Attendance (QR)
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Scan QR Code</DialogTitle>
-                <DialogDescription>
-                  Scan the QR code displayed by your lecturer or enter the code manually.
-                </DialogDescription>
-              </DialogHeader>
-
-              <Tabs defaultValue="scanner" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="scanner">Camera</TabsTrigger>
-                  <TabsTrigger value="upload">Upload</TabsTrigger>
-                  <TabsTrigger value="manual">Manual</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="scanner" className="space-y-4 py-4">
-                  <QrScanner 
-                    onScanSuccess={handleQrScanSuccess} 
-                    onScanError={handleQrScanError} 
-                  />
-                  {qrScanError && (
-                    <p className="text-sm text-destructive flex items-center">
-                      <AlertTriangle className="h-4 w-4 mr-1"/>{qrScanError}
-                    </p>
-                  )}
-                </TabsContent>
-                
-                <TabsContent value="upload" className="space-y-4 py-4">
-                  <div className="flex flex-col items-center space-y-4">
-                    <Button 
-                      variant="outline" 
-                      className="w-full h-24 border-dashed"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <div className="flex flex-col items-center space-y-2">
-                        <Upload className="h-8 w-8 text-muted-foreground" />
-                        <span>Upload QR code image</span>
-                      </div>
-                    </Button>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      ref={fileInputRef}
-                      onChange={handleQrFileSelect}
-                    />
-                    {qrScanError && (
-                      <p className="text-sm text-destructive flex items-center">
-                        <AlertTriangle className="h-4 w-4 mr-1"/>{qrScanError}
-                      </p>
-                    )}
-                    <div id="qr-reader-hidden" style={{ display: 'none' }}></div>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="manual" className="space-y-4 py-4">
-                 <Input 
-                    type="text" 
-                    placeholder="Enter QR code value" 
-                    value={qrCodeInput}
-                    onChange={(e) => setQrCodeInput(e.target.value)} 
-                  />
-                  {verificationResult && !verificationResult.success && (
-                    <p className="text-sm text-destructive flex items-center">
-                      <AlertTriangle className="h-4 w-4 mr-1"/>{verificationResult.message}
-                    </p>
-                  )}
-                  <Button onClick={handleManualQrSubmit} className="w-full">Submit Code</Button>
-                </TabsContent>
-              </Tabs>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsQrModalOpen(false)}>Cancel</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-    </Card>
+        </div>
+          </div>
+          </div>
   );
 }

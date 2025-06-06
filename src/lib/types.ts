@@ -35,6 +35,7 @@ export interface Class {
   autoStart: boolean;
   autoEnd: boolean;
   nextOccurrence?: string;
+  verification_methods: VerificationMethod[];
 }
 
 export type AttendanceStatus = 'Present' | 'Late' | 'Absent';

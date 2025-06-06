@@ -195,12 +195,24 @@ export default function QrScanner({ onScanSuccess, onScanError }: QrScannerProps
       <div id={scannerDivId} className="w-full max-w-sm mx-auto overflow-hidden rounded-lg border border-muted-foreground/20 bg-black/5"></div>
       
       {cameraError && (
-        <div className="bg-red-50 p-3 rounded-md text-red-600 text-sm flex items-start">
-          <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+        <div className="bg-red-50 p-3 rounded-md text-red-600 text-sm flex items-start justify-between animate-fade-in">
           <div>
             <p>{cameraError}</p>
             <p className="text-xs mt-1">Please use the Upload or Manual tab instead.</p>
           </div>
+          <button
+            className="ml-4 px-3 py-1 rounded bg-red-100 hover:bg-red-200 text-xs font-semibold transition"
+            onClick={() => { setCameraError(null); startScanner(); }}
+          >
+            Retry
+          </button>
+          <button
+            className="ml-2 text-lg font-bold text-red-400 hover:text-red-600 focus:outline-none"
+            onClick={() => setCameraError(null)}
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
         </div>
       )}
       
@@ -215,8 +227,8 @@ export default function QrScanner({ onScanSuccess, onScanError }: QrScannerProps
       ) : (
         <div className="space-y-2">
           <div className="text-xs text-center text-muted-foreground animate-pulse flex items-center justify-center">
-            <ScanLine className="mr-1 h-4 w-4" />
-            Scanning for QR code... Position the code in the camera view
+            <svg className="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /></svg>
+            Scanning for QR code... Align the code in the frame and ensure good lighting.
           </div>
           <div className="flex gap-2">
             <Button 

@@ -67,3 +67,76 @@ function updateCache(request, response) {
     return cache.put(request, response);
   });
 }
+
+// Service Worker for GeoAttend
+self.addEventListener('push', function(event) {
+  if (event.data) {
+    const data = event.data.json();
+    const options = {
+      body: data.body,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/badge-72x72.png',
+      vibrate: [100, 50, 100],
+      data: {
+        url: data.url
+      },
+      actions: data.actions || [
+        {
+          action: 'open',
+          title: 'Open App'
+        },
+        {
+          action: 'close',
+          title: 'Close'
+        }
+      ]
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    );
+  }
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+
+  if (event.action === 'open' || event.action === 'mark_attendance') {
+    // Get the URL from the notification data
+    const url = event.notification.data?.url || '/';
+    
+    // If it's a mark_attendance action, append a query parameter
+    const finalUrl = event.action === 'mark_attendance' 
+      ? `${url}?markAttendance=true`
+      : url;
+
+    event.waitUntil(
+      clients.openWindow(finalUrl)
+    );
+  }
+});
+
+// Cache important assets
+self.addEventListener('install', function(event) {
+  event.waitUntil(
+    caches.open('geoattend-v1').then(function(cache) {
+      return cache.addAll([
+        '/',
+        '/index.html',
+        '/manifest.json',
+        '/icons/icon-192x192.png',
+        '/icons/icon-512x512.png',
+        '/icons/badge-72x72.png'
+      ]);
+    })
+  );
+});
+
+// Serve cached content when offline
+self.addEventListener('fetch', function(event) {
+  event.respondWith(
+    caches.match(event.request).then(function(response) {
+      return response || fetch(event.request);
+    })
+  );
+});

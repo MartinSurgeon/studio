@@ -1,0 +1,92 @@
+import { supabase, handleSupabaseError } from '@/lib/supabase';
+import type { AttendanceRecord, GeoLocation } from '@/lib/types';
+import type { Tables, TablesInsert, TablesUpdate } from '@/lib/database.types';
+
+// Device ID storage key
+const DEVICE_ID_KEY = 'geoattend-device-id';
+
+// Get or generate a device identifier
+function getDeviceId(): string {
+  if (typeof window === 'undefined') return 'server';
+  
+  // Try to get existing device ID from localStorage
+  let deviceId = localStorage.getItem(DEVICE_ID_KEY);
+  
+  // If no device ID exists, generate a new one
+  if (!deviceId) {
+    deviceId = `device_${crypto.randomUUID()}`;
+    localStorage.setItem(DEVICE_ID_KEY, deviceId);
+    console.log(`AttendanceService: Generated new device ID: ${deviceId}`);
+  } else {
+    console.log(`AttendanceService: Using existing device ID: ${deviceId}`);
+  }
+  
+  return deviceId;
+}
+
+// Mapper to convert database rows to application types
+const mapToAttendanceRecord = (row: Tables<'attendance_records'>): AttendanceRecord => ({
+  id: row.id,
+  classId: row.class_id,
+  studentId: row.student_id,
+  checkInTime: row.check_in_time,
+  status: row.status,
+  verificationMethod: row.verification_method,
+  verifiedLocation: row.verified_latitude && row.verified_longitude
+    ? { latitude: row.verified_latitude, longitude: row.verified_longitude }
+    : undefined,
+  deviceId: row.device_id || undefined
+});
+
+// Mapper to convert application types to database rows
+const mapToAttendanceRow = (record: AttendanceRecord): TablesInsert<'attendance_records'> => {
+  // Create the basic row data with required fields
+  const rowData: any = {
+    id: record.id,
+    class_id: record.classId,
+    student_id: record.studentId,
+    check_in_time: record.checkInTime,
+    status: record.status,
+    verification_method: record.verificationMethod,
+    verified_latitude: record.verifiedLocation?.latitude || null,
+    verified_longitude: record.verifiedLocation?.longitude || null
+  };
+  
+  // Only add device_id if it exists in the record
+  if (record.deviceId) {
+    rowData.device_id = record.deviceId;
+  }
+  
+  return rowData as TablesInsert<'attendance_records'>;
+};
+
+export type VerificationMethod = 'QR' | 'Location' | 'Manual' | 'Biometric' | 'Facial' | 'NFC';
+
+// Service functions
+export const attendanceService = {
+  // ... [Previous service methods remain unchanged] ...
+
+  // Haversine formula to calculate distance between two coordinates in meters
+  calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const R = 6371e3; // Earth radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = 
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    
+    return distance; // Distance in meters
+  }
+}; 

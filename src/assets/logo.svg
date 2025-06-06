@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="256" fill="#4F46E5"/>
+  
+  <!-- Location Pin -->
+  <path d="M256 128C211.8 128 176 163.8 176 208C176 256 256 352 256 352C256 352 336 256 336 208C336 163.8 300.2 128 256 128ZM256 240C238.3 240 224 225.7 224 208C224 190.3 238.3 176 256 176C273.7 176 288 190.3 288 208C288 225.7 273.7 240 256 240Z" fill="white"/>
+  
+  <!-- Checkmark Circle -->
+  <circle cx="256" cy="256" r="192" stroke="white" stroke-width="16" stroke-dasharray="32 16"/>
+  
+  <!-- Checkmark -->
+  <path d="M208 256L240 288L320 208" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+</svg> 

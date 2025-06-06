@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useAppContext } from '@/contexts/AppContext';
-import type { Class, GeoLocation } from '@/lib/types';
+import type { Class, GeoLocation, VerificationMethod } from '@/lib/types';
 import { DEFAULT_DISTANCE_THRESHOLD, LECTURER_MOCK_ID } from '@/config';
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, MapPin, Loader2, Navigation } from 'lucide-react';
@@ -34,6 +34,8 @@ const classFormSchema = z.object({
   recurrenceDaysOfMonth: z.array(z.number()).optional(),
   recurrenceEndDate: z.string().optional(),
   recurrenceOccurrences: z.string().optional(),
+  startTime: z.string().min(1, 'Start time is required'),
+  endTime: z.string().min(1, 'End time is required'),
 }).refine(data => {
   if (data.useLocation) {
     return !!data.latitude && !!data.longitude && !isNaN(parseFloat(data.latitude)) && !isNaN(parseFloat(data.longitude));
@@ -50,13 +52,22 @@ interface CreateClassFormProps {
   onClassCreated: (newClass: Class) => void;
 }
 
+const VERIFICATION_METHODS: { key: VerificationMethod; label: string }[] = [
+  { key: 'QR', label: 'QR Code' },
+  { key: 'Location', label: 'Location' },
+  { key: 'Biometric', label: 'Biometric' },
+  { key: 'Facial', label: 'Facial Recognition' },
+  { key: 'NFC', label: 'NFC' },
+  { key: 'Manual', label: 'Manual' },
+];
+
 export default function CreateClassForm({ onClassCreated }: CreateClassFormProps) {
   const { classes, setClasses, user } = useAppContext();
-  const [showLocationFields, setShowLocationFields] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const [formError, setFormError] = useState<string | null>(null);
+  const [selectedMethods, setSelectedMethods] = useState<VerificationMethod[]>(['QR']);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors }, control } = useForm<ClassFormData>({
     resolver: zodResolver(classFormSchema),
@@ -75,6 +86,8 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
       recurrenceDaysOfMonth: [],
       recurrenceEndDate: '',
       recurrenceOccurrences: '',
+      startTime: '',
+      endTime: '',
     }
   });
 
@@ -84,14 +97,6 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
   const recurrenceDaysOfWeek = watch('recurrenceDaysOfWeek');
   const recurrenceDaysOfMonth = watch('recurrenceDaysOfMonth');
   const recurrenceEndDate = watch('recurrenceEndDate');
-
-  useEffect(() => {
-    setShowLocationFields(useLocationValue);
-    if(!useLocationValue) {
-      setValue('latitude', '');
-      setValue('longitude', '');
-    }
-  }, [useLocationValue, setValue]);
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -164,12 +169,19 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
   };
 
   const onSubmit: SubmitHandler<ClassFormData> = async (data) => {
+    console.log("CreateClassForm: onSubmit data", data);
     if (!user || !user.id) {
       toast({ 
         title: "Authentication Error", 
         description: "You must be logged in to create a class", 
         variant: "destructive" 
       });
+      return;
+    }
+    
+    if (selectedMethods.length === 0) {
+      toast({ title: "Select Verification Method", description: "Please select at least one verification method.", variant: "destructive" });
+      setIsSubmitting(false);
       return;
     }
     
@@ -181,7 +193,8 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
         name: data.name,
         lecturerId: user.id, // Use actual user ID instead of mock ID
         active: false,
-        startTime: new Date().toISOString(),
+        startTime: data.startTime,
+        endTime: data.endTime,
         distanceThreshold: data.distanceThreshold ? parseInt(data.distanceThreshold, 10) : DEFAULT_DISTANCE_THRESHOLD,
         scheduleType: data.scheduleType,
         durationMinutes: parseInt(data.durationMinutes, 10),
@@ -196,6 +209,8 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
           endDate: data.recurrenceEndDate || undefined,
           occurrences: data.recurrenceOccurrences ? parseInt(data.recurrenceOccurrences, 10) : undefined,
         } : undefined,
+        verification_methods: selectedMethods,
+        createdAt: new Date().toISOString(),
       };
 
       if (data.useLocation && data.latitude && data.longitude) {
@@ -203,6 +218,7 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
           latitude: parseFloat(data.latitude),
           longitude: parseFloat(data.longitude),
         };
+        classData.distanceThreshold = data.distanceThreshold ? parseInt(data.distanceThreshold, 10) : DEFAULT_DISTANCE_THRESHOLD;
       }
       
       // Save to Supabase
@@ -220,7 +236,6 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
       dispatchClassCreatedEvent(savedClass);
       
       reset();
-      setShowLocationFields(false);
       setFormError(null);
     } catch (error) {
       console.error("Error creating class:", error);
@@ -257,13 +272,26 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
           </div>
 
           <div className="flex items-center space-x-2">
-            <Checkbox id="useLocation" {...register('useLocation')} checked={showLocationFields} onCheckedChange={(checked) => setShowLocationFields(!!checked)} />
+            <Checkbox id="useLocation" {...register('useLocation')} checked={useLocationValue} onCheckedChange={(checked) => {
+               setValue('useLocation', !!checked);
+               if (!checked) {
+                setValue('latitude', '');
+                setValue('longitude', '');
+                setValue('distanceThreshold', DEFAULT_DISTANCE_THRESHOLD.toString());
+                 setSelectedMethods((prev) => prev.filter((method) => method !== 'Location'));
+              } else {
+                 setSelectedMethods((prev) => { 
+                    if (!prev.includes('Location')) { return [...prev, 'Location']; } 
+                    return prev; 
+                  });
+              }
+            }} />
             <Label htmlFor="useLocation" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               Enable Location Verification
             </Label>
           </div>
 
-          {showLocationFields && (
+          {useLocationValue && (
             <div className="space-y-4 p-4 border rounded-md bg-muted/50">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between text-primary font-medium mb-2 gap-2">
                 <div className="flex items-center">
@@ -442,6 +470,67 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
             <div className="flex items-center space-x-2">
               <Checkbox id="autoEnd" {...register('autoEnd')} />
               <Label htmlFor="autoEnd">Auto-end class after duration</Label>
+            </div>
+          </div>
+
+          {/* Verification Methods */}
+          <div>
+            <Label className="mb-2 block font-semibold">Verification Methods</Label>
+            <div className="flex flex-wrap gap-4">
+              {VERIFICATION_METHODS.map((method) => (
+                <label key={method.key} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={selectedMethods.includes(method.key)}
+                    onCheckedChange={(checked) => {
+                      if (method.key === 'Location') {
+                        setValue('useLocation', !!checked);
+                         if (!checked) {
+                            setValue('latitude', '');
+                            setValue('longitude', '');
+                            setValue('distanceThreshold', DEFAULT_DISTANCE_THRESHOLD.toString());
+                             setSelectedMethods((prev) => prev.filter((m) => m !== 'Location'));
+                         } else {
+                             setSelectedMethods((prev) => { 
+                                if (!prev.includes('Location')) { return [...prev, 'Location']; } 
+                                return prev; 
+                              });
+                         }
+                      } else {
+                        setSelectedMethods((prev) =>
+                          checked
+                            ? [...prev, method.key]
+                            : prev.filter((m) => m !== method.key)
+                        );
+                      }
+                    }}
+                    disabled={method.key === 'Location' && useLocationValue}
+                  />
+                  <span>{method.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startTime">Start Time</Label>
+              <Input
+                id="startTime"
+                type="datetime-local"
+                {...register('startTime')}
+                className={errors.startTime ? 'border-destructive' : ''}
+              />
+              {errors.startTime && <p className="text-sm text-destructive">{errors.startTime.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endTime">End Time</Label>
+              <Input
+                id="endTime"
+                type="datetime-local"
+                {...register('endTime')}
+                className={errors.endTime ? 'border-destructive' : ''}
+              />
+              {errors.endTime && <p className="text-sm text-destructive">{errors.endTime.message}</p>}
             </div>
           </div>
         </CardContent>

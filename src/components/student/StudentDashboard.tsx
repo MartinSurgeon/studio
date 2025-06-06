@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ActiveClassCard from './ActiveClassCard';
@@ -33,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/core/LoadingSpinner';
 import { classService } from '@/lib/services/class.service';
 import { attendanceService } from '@/lib/services/attendance.service';
+import { notificationService } from '@/lib/services/notification.service';
 
 export default function StudentDashboard() {
   const { classes, setClasses, attendanceRecords, setAttendanceRecords, studentId, user, refreshAttendanceData } = useAppContext();
@@ -44,35 +45,36 @@ export default function StudentDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const classesRef = useRef(classes);
+  const isRefreshingRef = useRef(isRefreshing);
+
+  useEffect(() => {
+    classesRef.current = classes;
+  }, [classes]);
+
+  useEffect(() => {
+    isRefreshingRef.current = isRefreshing;
+  }, [isRefreshing]);
 
   // Function to refresh classes data
   const refreshClassesData = useCallback(async (showToast = false) => {
-    if (!studentId || isRefreshing) return;
-    
+    if (!studentId || isRefreshingRef.current) return;
     setIsRefreshing(true);
     console.log("StudentDashboard: Refreshing classes data");
-    
     try {
       // Fetch all available classes (including newly created ones)
       const fetchedClasses = await classService.getClasses();
-      if (fetchedClasses && fetchedClasses.length > 0) {
-        console.log(`StudentDashboard: Refreshed ${fetchedClasses.length} classes from Supabase`);
-        
-        // Only update if there are different classes
-        if (fetchedClasses.length !== classes.length) {
-          setClasses(fetchedClasses);
-          if (showToast) {
-            toast({
-              title: 'Classes Updated',
-              description: `Found ${fetchedClasses.length - classes.length > 0 ? 'new' : 'updated'} classes`,
-            });
-          }
+      if (fetchedClasses && JSON.stringify(fetchedClasses) !== JSON.stringify(classesRef.current)) {
+        setClasses(fetchedClasses);
+        if (showToast) {
+          toast({
+            title: 'Classes Updated',
+            description: `Found ${fetchedClasses.length - classesRef.current.length > 0 ? 'new' : 'updated'} classes`,
+          });
         }
       }
-      
       // Also refresh attendance records
       await refreshAttendanceData();
-      
     } catch (error) {
       console.error('StudentDashboard: Error refreshing classes:', error);
       if (showToast) {
@@ -85,36 +87,25 @@ export default function StudentDashboard() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [studentId, classes.length, setClasses, toast, refreshAttendanceData, isRefreshing]);
+  }, [studentId, setClasses, toast, refreshAttendanceData]);
 
   // Set up polling for class updates
   useEffect(() => {
     if (!studentId) return;
-    
     console.log("StudentDashboard: Setting up class data polling");
-    
-    // Poll every 30 seconds for new classes
     const pollingInterval = setInterval(() => {
-      refreshClassesData();
-    }, 30000); // 30 seconds
-    
-    // EMERGENCY FIX: Add automatic testing mode switch after 8 seconds if still loading
+      refreshClassesData(false);
+    }, 60000);
     const emergencyTimer = setTimeout(() => {
       if (isLoading) {
         console.log("EMERGENCY: Dashboard still loading after 8 seconds, automatically switching to offline mode");
-        
         toast({
           title: "Loading Taking Too Long",
           description: "Automatically switching to offline mode to improve your experience.",
         });
-        
-        // In this component we only have access to local state, so we'll refresh the page with a
-        // special URL parameter that will enable testing mode
         window.location.href = '/?enableTestingMode=true';
       }
     }, 8000);
-    
-    // Clean up interval on unmount
     return () => {
       console.log("StudentDashboard: Cleaning up class polling");
       clearInterval(pollingInterval);
@@ -294,6 +285,59 @@ export default function StudentDashboard() {
       recentClasses
     };
   }, [studentAttendanceHistory, classes]);
+
+  // Set up notifications for active classes
+  useEffect(() => {
+    const setupNotifications = async () => {
+      const hasPermission = await notificationService.requestPermission();
+      if (hasPermission) {
+        await notificationService.scheduleMultipleClassNotifications(activeClasses);
+      }
+    };
+
+    setupNotifications();
+  }, [activeClasses]);
+
+  // Handle class start events
+  useEffect(() => {
+    const handleClassStart = (event: Event) => {
+      const customEvent = event as CustomEvent<{ classId: string }>;
+      const classItem = classes.find(c => c.id === customEvent.detail.classId);
+      if (classItem) {
+        notificationService.notifyClassStarted(classItem);
+      }
+    };
+
+    window.addEventListener('class-started', handleClassStart);
+    return () => {
+      window.removeEventListener('class-started', handleClassStart);
+    };
+  }, [classes]);
+
+  // Handle mark attendance from notification
+  useEffect(() => {
+    const handleMarkAttendanceFromNotification = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const markAttendance = urlParams.get('markAttendance');
+      const classId = urlParams.get('classId');
+
+      if (markAttendance === 'true' && classId) {
+        const classItem = classes.find(c => c.id === classId);
+        if (classItem) {
+          // Trigger attendance marking
+          const activeClassCard = document.querySelector(`[data-class-id="${classId}"]`);
+          if (activeClassCard) {
+            const markAttendanceButton = activeClassCard.querySelector('[data-action="mark-attendance"]');
+            if (markAttendanceButton instanceof HTMLElement) {
+              markAttendanceButton.click();
+            }
+          }
+        }
+      }
+    };
+
+    handleMarkAttendanceFromNotification();
+  }, [classes]);
 
   if (isLoading) {
     return (

@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { Class, GeoLocation } from '@/lib/types';
+import type { Class, GeoLocation, VerificationMethod } from '@/lib/types';
 import { DEFAULT_DISTANCE_THRESHOLD } from '@/config';
 import { useToast } from '@/hooks/use-toast';
-import { Save, MapPin, Loader2, Navigation, AlertTriangle } from 'lucide-react';
+import { Save, MapPin, Loader2, Navigation, AlertTriangle, QrCode, Fingerprint, Camera, CreditCard, UserCheck } from 'lucide-react';
 
 const editClassFormSchema = z.object({
   name: z.string().min(3, 'Class name must be at least 3 characters'),
@@ -31,6 +31,8 @@ const editClassFormSchema = z.object({
   recurrenceDaysOfMonth: z.array(z.number()).optional(),
   recurrenceEndDate: z.string().optional(),
   recurrenceOccurrences: z.string().optional(),
+  startTime: z.string().min(1, 'Start time is required'),
+  endTime: z.string().min(1, 'End time is required'),
 }).refine(data => {
   if (data.useLocation) {
     return !!data.latitude && !!data.longitude && !isNaN(parseFloat(data.latitude)) && !isNaN(parseFloat(data.longitude));
@@ -50,9 +52,19 @@ interface EditClassDialogProps {
   onUpdateClass: (updatedClass: Class) => void;
 }
 
+const VERIFICATION_METHODS: { key: VerificationMethod; label: string; icon: any }[] = [
+  { key: 'QR', label: 'QR Code', icon: QrCode },
+  { key: 'Location', label: 'Location', icon: MapPin },
+  { key: 'Biometric', label: 'Biometric', icon: Fingerprint },
+  { key: 'Facial', label: 'Facial Recognition', icon: Camera },
+  { key: 'NFC', label: 'NFC', icon: CreditCard },
+  { key: 'Manual', label: 'Manual', icon: UserCheck },
+];
+
 export default function EditClassDialog({ classInstance, isOpen, onOpenChange, onUpdateClass }: EditClassDialogProps) {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const { toast } = useToast();
+  const [selectedMethods, setSelectedMethods] = useState<VerificationMethod[]>(classInstance.verification_methods || ['QR']);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors }, control } = useForm<EditClassFormData>({
     resolver: zodResolver(editClassFormSchema),
@@ -73,6 +85,8 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
       recurrenceDaysOfMonth: classInstance.recurrencePattern?.daysOfMonth || [],
       recurrenceEndDate: classInstance.recurrencePattern?.endDate || '',
       recurrenceOccurrences: classInstance.recurrencePattern?.occurrences?.toString() || '',
+      startTime: classInstance.startTime ? classInstance.startTime.slice(0, 16) : '',
+      endTime: classInstance.endTime ? classInstance.endTime.slice(0, 16) : '',
     }
   });
 
@@ -96,7 +110,10 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
         recurrenceDaysOfMonth: classInstance.recurrencePattern?.daysOfMonth || [],
         recurrenceEndDate: classInstance.recurrencePattern?.endDate || '',
         recurrenceOccurrences: classInstance.recurrencePattern?.occurrences?.toString() || '',
+        startTime: classInstance.startTime ? classInstance.startTime.slice(0, 16) : '',
+        endTime: classInstance.endTime ? classInstance.endTime.slice(0, 16) : '',
       });
+      setSelectedMethods(classInstance.verification_methods || ['QR']);
     }
   }, [isOpen, classInstance, reset]);
 
@@ -105,6 +122,17 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
   const recurrenceFrequency = watch('recurrenceFrequency');
   const recurrenceDaysOfWeek = watch('recurrenceDaysOfWeek');
   const recurrenceDaysOfMonth = watch('recurrenceDaysOfMonth');
+
+  // Effect to clear location fields when useLocation is unchecked
+  useEffect(() => {
+    if (!useLocationValue) {
+      setValue('latitude', '');
+      setValue('longitude', '');
+      setValue('distanceThreshold', DEFAULT_DISTANCE_THRESHOLD.toString());
+       // Also ensure 'Location' is removed from selected methods when unchecked
+      setSelectedMethods((prev) => prev.filter((method) => method !== 'Location'));
+    }
+  }, [useLocationValue, setValue]);
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -158,6 +186,20 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
   };
 
   const onSubmit: SubmitHandler<EditClassFormData> = (data) => {
+    console.log('EditClassDialog: onSubmit started', { data, selectedMethods });
+
+    // Determine the final list of verification methods to be saved
+    let finalVerificationMethods = [...selectedMethods];
+    if (data.useLocation && !finalVerificationMethods.includes('Location')) {
+      finalVerificationMethods.push('Location');
+    }
+
+    // Now check if the final list of methods is empty
+    if (finalVerificationMethods.length === 0) {
+      toast({ title: 'Select Verification Method', description: 'Please select at least one verification method.', variant: 'destructive' });
+      return;
+    }
+
     const updatedClass: Class = {
       ...classInstance,
       name: data.name,
@@ -175,6 +217,9 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
         endDate: data.recurrenceEndDate || undefined,
         occurrences: data.recurrenceOccurrences ? parseInt(data.recurrenceOccurrences, 10) : undefined,
       } : undefined,
+      verification_methods: finalVerificationMethods,
+      startTime: data.startTime,
+      endTime: data.endTime,
     };
 
     if (data.useLocation && data.latitude && data.longitude) {
@@ -186,21 +231,31 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
       // Remove location if useLocation is false
       delete updatedClass.location;
     }
+
+    if (data.useLocation) {
+      if (!data.latitude || !data.longitude || !data.distanceThreshold) {
+        toast({ title: 'Location Required', description: 'Latitude, Longitude, and Distance Threshold are required for location verification.', variant: 'destructive' });
+        return;
+      }
+    }
+
+    console.log('EditClassDialog: Calling onUpdateClass', { updatedClass });
     onUpdateClass(updatedClass);
+    console.log('EditClassDialog: onUpdateClass called');
     toast({ title: "Class Updated", description: `"${data.name}" has been successfully updated.` });
     onOpenChange(false);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Class</DialogTitle>
           <DialogDescription>
             Update class details and location settings.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={(e) => { console.log('Form native onSubmit event fired'); handleSubmit(onSubmit)(e); }} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-name">Class Name</Label>
             <Input 
@@ -404,11 +459,58 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
             </div>
           </div>
 
+          <div>
+            <Label className="mb-2 block font-semibold">Verification Methods</Label>
+            <div className="flex flex-wrap gap-4">
+              {VERIFICATION_METHODS.map((method) => (
+                <label key={method.key} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={selectedMethods.includes(method.key)}
+                    onCheckedChange={(checked) => {
+                      if (method.key === 'Location' && useLocationValue) return;
+                      setSelectedMethods((prev) =>
+                        checked
+                          ? [...prev, method.key]
+                          : prev.filter((m) => m !== method.key)
+                      );
+                    }}
+                    disabled={method.key === 'Location' && useLocationValue}
+                  />
+                  {method.icon && <method.icon className="h-4 w-4" />}
+                  <span>{method.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-startTime">Start Time</Label>
+              <Input
+                id="edit-startTime"
+                type="datetime-local"
+                {...register('startTime')}
+                className={errors.startTime ? 'border-destructive' : ''}
+              />
+              {errors.startTime && <p className="text-sm text-destructive">{errors.startTime.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-endTime">End Time</Label>
+              <Input
+                id="edit-endTime"
+                type="datetime-local"
+                {...register('endTime')}
+                className={errors.endTime ? 'border-destructive' : ''}
+              />
+              {errors.endTime && <p className="text-sm text-destructive">{errors.endTime.message}</p>}
+            </div>
+          </div>
+
           <DialogFooter className="mt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" onClick={() => console.log('Save Changes button clicked')}>
               <Save className="mr-2 h-4 w-4" />
               Save Changes
             </Button>

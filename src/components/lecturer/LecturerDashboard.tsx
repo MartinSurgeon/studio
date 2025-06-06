@@ -242,14 +242,47 @@ export default function LecturerDashboard() {
     }
   }, [refreshAttendanceData]);
 
+  // Subtle polling for class updates every 60 seconds
+  useEffect(() => {
+    if (!user || !user.id) return;
+
+    const classPollingInterval = setInterval(async () => {
+      try {
+        const fetchedClasses = await classService.getClasses(user.id);
+        if (fetchedClasses && JSON.stringify(fetchedClasses) !== JSON.stringify(classes)) {
+          setClasses(fetchedClasses);
+        }
+      } catch (error) {
+        // Optionally log error, but do not show toast
+        console.error('LecturerDashboard: Error polling for class updates:', error);
+      }
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(classPollingInterval);
+  }, [user, classes, setClasses]);
+
   const handleClassCreated = (newClass: Class) => {
     setClasses(prevClasses => [...prevClasses, newClass]);
   };
 
-  const handleUpdateClass = (updatedClass: Class) => {
-    setClasses(prevClasses => prevClasses.map(c => c.id === updatedClass.id ? updatedClass : c));
-    if (selectedClassForReport?.id === updatedClass.id) {
-      setSelectedClassForReport(updatedClass);
+  const handleUpdateClass = async (updatedClass: Class) => {
+    try {
+      console.log('LecturerDashboard: Attempting to update class in database', { updatedClass });
+      const savedClass = await classService.updateClass(updatedClass.id, updatedClass);
+      if (savedClass) {
+        console.log('LecturerDashboard: Class updated successfully in database', { savedClass });
+        setClasses(prevClasses => prevClasses.map(c => c.id === savedClass.id ? savedClass : c));
+        if (selectedClassForReport?.id === savedClass.id) {
+          setSelectedClassForReport(savedClass);
+        }
+        toast({ title: "Class Updated", description: `"${savedClass.name}" has been successfully updated.` });
+      } else {
+        console.error('LecturerDashboard: Database update returned no class', { updatedClass });
+        toast({ title: "Update Failed", description: `Failed to update "${updatedClass.name}". Please try again.`, variant: "destructive" });
+      }
+    } catch (error) {
+      console.error('LecturerDashboard: Error updating class in database', { error, updatedClass });
+      toast({ title: "Update Failed", description: `Failed to update "${updatedClass.name}". Error: ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
 

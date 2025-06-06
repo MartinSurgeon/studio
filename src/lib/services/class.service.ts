@@ -1,6 +1,6 @@
 import { supabase, handleSupabaseError } from '@/lib/supabase';
-import type { Class, RecurrencePattern, ScheduleType } from '@/lib/types';
-import type { Tables, InsertDTO, UpdateDTO } from '@/lib/database.types';
+import type { Class, RecurrencePattern, ScheduleType, VerificationMethod } from '@/lib/types';
+import type { Tables, TablesInsert, TablesUpdate, Json } from '@/lib/database.types';
 import { addDays, addWeeks, addMonths, isAfter, isBefore, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,20 +20,21 @@ const mapToClass = (row: Tables<'classes'>): Class => ({
   qrCodeExpiry: row.qr_code_expiry || undefined,
   createdAt: row.created_at,
   scheduleType: row.schedule_type as ScheduleType,
-  recurrencePattern: row.recurrence_pattern,
+  recurrencePattern: row.recurrence_pattern ? (row.recurrence_pattern as unknown as RecurrencePattern) : undefined,
   durationMinutes: row.duration_minutes,
   gracePeriodMinutes: row.grace_period_minutes,
   autoStart: row.auto_start,
   autoEnd: row.auto_end,
-  nextOccurrence: row.next_occurrence as string | undefined
+  nextOccurrence: row.next_occurrence as string | undefined,
+  verification_methods: (row.verification_methods as string[] || []).map(method => method as VerificationMethod),
 });
 
 // Mapper to convert application types to database rows
-const mapToClassRow = (classData: Class): InsertDTO<'classes'> => ({
+const mapToClassRow = (classData: Class): TablesInsert<'classes'> => ({
   id: classData.id,
   name: classData.name,
-  latitude: classData.location?.latitude || null,
-  longitude: classData.location?.longitude || null,
+  latitude: classData.location?.latitude !== undefined ? classData.location.latitude : null,
+  longitude: classData.location?.longitude !== undefined ? classData.location.longitude : null,
   distance_threshold: classData.distanceThreshold ?? 100,
   start_time: classData.startTime,
   end_time: classData.endTime || null,
@@ -43,12 +44,13 @@ const mapToClassRow = (classData: Class): InsertDTO<'classes'> => ({
   qr_code_expiry: classData.qrCodeExpiry || null,
   created_at: classData.createdAt,
   schedule_type: classData.scheduleType ?? 'one-time',
-  recurrence_pattern: classData.recurrencePattern ?? null,
+  recurrence_pattern: classData.recurrencePattern as unknown as Json ?? null,
   duration_minutes: classData.durationMinutes ?? 60,
   grace_period_minutes: classData.gracePeriodMinutes ?? 15,
   auto_start: classData.autoStart ?? false,
   auto_end: classData.autoEnd ?? false,
-  next_occurrence: classData.nextOccurrence || null
+  next_occurrence: classData.nextOccurrence || null,
+  verification_methods: classData.verification_methods as any || ['QR'],
 });
 
 // Ensure API key is included in all requests
@@ -139,6 +141,8 @@ export const classService = {
   // Create a new class
   async createClass(classData: Omit<Class, 'id'>, specificId?: string): Promise<Class | null> {
     try {
+      console.log('createClass: Received classData', classData);
+
       // Validate lecturer_id is a valid UUID
       if (!classData.lecturerId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(classData.lecturerId)) {
         console.error(`Invalid lecturer_id format: "${classData.lecturerId}". Must be a valid UUID.`);
@@ -171,13 +175,19 @@ export const classService = {
         autoEnd: (classData as any).autoEnd ?? false,
         recurrencePattern: (classData as any).recurrencePattern ?? null,
         nextOccurrence: (classData as any).nextOccurrence || null,
+        verification_methods: (classData as any).verification_methods || ['QR'],
       };
+      
+      const mappedData = mapToClassRow(newClass as Class);
+      console.log('createClass: Mapped data for Supabase insert', mappedData);
       
       const { data, error } = await supabase
         .from('classes')
-        .insert(mapToClassRow(newClass as Class))
+        .insert(mappedData)
         .select()
         .single();
+      
+      console.log('createClass: Supabase insert result', { data, error });
       
       if (error) {
         console.error("Error creating class:", error, { classData: newClass });
@@ -229,7 +239,8 @@ export const classService = {
           autoStart: updates.autoStart || false,
           autoEnd: updates.autoEnd || false,
           recurrencePattern: updates.recurrencePattern || undefined,
-          nextOccurrence: updates.nextOccurrence || undefined
+          nextOccurrence: updates.nextOccurrence || undefined,
+          verification_methods: updates.verification_methods || ['QR'],
         };
         
         try {
@@ -374,37 +385,31 @@ export const classService = {
   // Handle auto-start/end for classes
   async handleAutoStartEnd(): Promise<void> {
     const now = new Date();
-    
-    // Get all active classes
-    const { data: activeClasses, error } = await supabase
+    // Get all classes (not just active)
+    const { data: allClasses, error } = await supabase
       .from('classes')
-      .select('*')
-      .eq('active', true);
-
+      .select('*');
     if (error) throw error;
-
-    for (const classData of activeClasses) {
+    for (const classData of allClasses) {
       const classInstance = mapToClass(classData);
       const startTime = parseISO(classInstance.startTime);
-      const endTime = classInstance.endTime ? parseISO(classInstance.endTime) : null;
-
-      // Handle auto-start
-      if (classInstance.autoStart && 
-          isBefore(startTime, now) && 
-          (!endTime || isAfter(endTime, now))) {
+      const durationMinutes = classInstance.durationMinutes || 60;
+      const gracePeriodMinutes = classInstance.gracePeriodMinutes || 15;
+      const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+      const graceEndTime = new Date(endTime.getTime() + gracePeriodMinutes * 60000);
+      // Auto-start: if autoStart is true and now >= startTime and not active
+      if (classInstance.autoStart && !classInstance.active && now >= startTime) {
         await this.updateClass(classInstance.id, {
           ...classInstance,
           active: true
         });
       }
-
-      // Handle auto-end
-      if (classInstance.autoEnd && endTime && isAfter(now, endTime)) {
+      // Auto-end: if autoEnd is true and now >= graceEndTime and active
+      if (classInstance.autoEnd && classInstance.active && now >= graceEndTime) {
         await this.updateClass(classInstance.id, {
           ...classInstance,
           active: false
         });
-
         // Generate next occurrence for recurring classes
         if (classInstance.scheduleType !== 'one-time') {
           await this.generateNextOccurrence(classInstance.id);
@@ -412,4 +417,4 @@ export const classService = {
       }
     }
   }
-}; 
+};

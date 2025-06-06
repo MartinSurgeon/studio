@@ -37,9 +37,9 @@ export default function RoleSelection() {
         <div className="mt-2 text-base text-blue-700 font-medium tracking-wide bg-white/60 px-4 py-1 rounded-full shadow-sm backdrop-blur-sm">
           Smart Attendance, Simplified
         </div>
-      </div>
+          </div>
       <div className="mb-8 text-lg text-muted-foreground font-medium text-center max-w-md">
-        Welcome! Please select your role to continue.
+            Welcome! Please select your role to continue.
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-2xl">
         {roles.map((role) => (

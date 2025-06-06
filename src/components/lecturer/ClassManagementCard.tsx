@@ -8,7 +8,7 @@ import type { Class, AttendanceRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import QrCodeDisplay from './QrCodeDisplay';
 import EditClassDialog from './EditClassDialog';
-import { PlayCircle, StopCircle, Edit3, Trash2, Eye, Users, MapPin, AlertTriangle, Calendar, QrCode, BookOpen, Clock } from 'lucide-react';
+import { PlayCircle, StopCircle, Edit3, Trash2, Eye, Users, MapPin, AlertTriangle, Calendar, QrCode, BookOpen, Clock, Fingerprint, Camera, CreditCard, UserCheck } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -438,6 +438,12 @@ export default function ClassManagementCard({ classInstance, attendanceRecords, 
                 String(dbError).includes('not found')) {
               console.log("Attempting to create new class with location instead of update");
               const { id, ...classDataWithoutId } = updatedClass;
+              
+              // Ensure location data is properly preserved
+              if (classDataWithoutId.location) {
+                console.log("Location data for new class:", classDataWithoutId.location);
+              }
+              
               const newClass = await classService.createClass(classDataWithoutId);
               if (newClass) {
                 console.log("Successfully created new class with location:", newClass);
@@ -624,36 +630,24 @@ export default function ClassManagementCard({ classInstance, attendanceRecords, 
           <div className="space-y-2">
             <div className="flex items-center text-sm font-medium">
               <MapPin className="h-4 w-4 mr-2 text-emerald-500" />
-              Verification Method
+              Verification Methods
             </div>
-            <div className={cn(
-              "p-3 rounded-lg flex items-center justify-between",
-              classInstance.location ? "bg-emerald-50" : "bg-orange-50"
-            )}>
-              <div>
-                <div className="text-sm font-medium">
-                  {classInstance.location ? (
-                    <span className="text-emerald-700">Location Enabled</span>
-                  ) : (
-                    <span className="text-orange-700">QR Code Only</span>
-                  )}
-                </div>
-                {classInstance.location && (
-                  <div className="text-xs text-emerald-600 mt-1">
-                    Threshold: {classInstance.distanceThreshold}m
-                  </div>
-                )}
-              </div>
-              <div className={cn(
-                "h-8 w-8 rounded-full flex items-center justify-center",
-                classInstance.location ? "bg-emerald-100" : "bg-orange-100"
-              )}>
-                {classInstance.location ? (
-                  <MapPin className="h-5 w-5 text-emerald-500" />
-                ) : (
-                  <QrCode className="h-5 w-5 text-orange-500" />
-                )}
-              </div>
+            <div className="p-3 rounded-lg flex flex-wrap gap-2 bg-gray-50">
+              {Array.isArray(classInstance.verification_methods) && classInstance.verification_methods.length > 0 ? (
+                classInstance.verification_methods.map((method) => (
+                  <span key={method} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 shadow-sm gap-1">
+                    {method === 'QR' && <QrCode className="h-4 w-4 text-blue-500" />}
+                    {method === 'Location' && <MapPin className="h-4 w-4 text-emerald-500" />}
+                    {method === 'Biometric' && <Fingerprint className="h-4 w-4 text-purple-500" />}
+                    {method === 'Facial' && <Camera className="h-4 w-4 text-pink-500" />}
+                    {method === 'NFC' && <CreditCard className="h-4 w-4 text-green-500" />}
+                    {method === 'Manual' && <UserCheck className="h-4 w-4 text-orange-500" />}
+                    <span>{method}</span>
+                  </span>
+                ))
+              ) : (
+                <span className="text-gray-500">No verification methods set</span>
+              )}
             </div>
           </div>
         </div>
