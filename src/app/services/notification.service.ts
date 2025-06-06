@@ -1,11 +1,7 @@
-import { Injectable } from '@angular/core';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { BehaviorSubject } from 'rxjs';
 
-@Injectable({
-  providedIn: 'root'
-})
 export class NotificationService {
   private messaging: any = null;
   private notificationPermission = new BehaviorSubject<NotificationPermission>('default');
