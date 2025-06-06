@@ -41,6 +41,7 @@
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.57.0",
+    "rxjs": "^7.8.2",
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.25.55"
