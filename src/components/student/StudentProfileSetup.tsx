@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/contexts/AppContext';
-import { User, ArrowRight, CheckCircle, AlertTriangle, CircleCheck } from 'lucide-react';
+import { User, ArrowRight, CheckCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const studentProfileSchema = z.object({
@@ -128,15 +128,15 @@ export default function StudentProfileSetup() {
                 <p className="text-sm font-medium">Your index number should:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li className="flex items-center">
-                    <CircleCheck className="h-3 w-3 mr-2 text-green-500" />
+                    <CheckCircle className="h-3 w-3 mr-2 text-green-500" />
                     Be at least 3 characters long
                   </li>
                   <li className="flex items-center">
-                    <CircleCheck className="h-3 w-3 mr-2 text-green-500" />
+                    <CheckCircle className="h-3 w-3 mr-2 text-green-500" />
                     Not exceed 20 characters
                   </li>
                   <li className="flex items-center">
-                    <CircleCheck className="h-3 w-3 mr-2 text-green-500" />
+                    <CheckCircle className="h-3 w-3 mr-2 text-green-500" />
                     Only contain letters, numbers, and / - _ .
                   </li>
                 </ul>
