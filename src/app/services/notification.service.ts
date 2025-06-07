@@ -47,7 +47,9 @@ export class NotificationService {
         // Handle foreground messages
         onMessage(this.messaging, (payload) => {
           console.log('Message received in foreground:', payload);
-          this.showNotification(payload.notification.title, payload.notification.body);
+          if (payload.notification) {
+            this.showNotification(payload.notification.title ?? '', payload.notification.body ?? '');
+          }
         });
 
       } catch (error) {
