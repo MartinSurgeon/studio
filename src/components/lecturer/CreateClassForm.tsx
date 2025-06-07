@@ -88,7 +88,7 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
       recurrenceOccurrences: '',
       startTime: '',
       endTime: '',
-    }
+    } satisfies ClassFormData
   });
 
   const useLocationValue = watch('useLocation');
