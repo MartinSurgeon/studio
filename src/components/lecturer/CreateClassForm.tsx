@@ -22,7 +22,7 @@ const classFormSchema = z.object({
   latitude: z.string().optional(),
   longitude: z.string().optional(),
   distanceThreshold: z.string().optional(),
-  scheduleType: z.enum(['one-time', 'daily', 'weekly', 'custom']).default('one-time'),
+  scheduleType: z.enum(['one-time', 'daily', 'weekly', 'custom']),
   durationMinutes: z.string().min(1, 'Duration is required'),
   gracePeriodMinutes: z.string().min(1, 'Grace period is required'),
   autoStart: z.boolean().default(false),
