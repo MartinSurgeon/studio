@@ -21,7 +21,7 @@ export async function GET() {
       results.supabase.error = error.message;
     } else {
       results.supabase.status = 'connected';
-      results.supabase.data = { count: data?.length || 0 };
+      (results.supabase.data as any) = { count: data?.length || 0 };
     }
   } catch (error) {
     results.supabase.status = 'error';
