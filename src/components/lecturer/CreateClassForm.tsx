@@ -18,15 +18,15 @@ import { classService } from '@/lib/services/class.service';
 
 const classFormSchema = z.object({
   name: z.string().min(3, 'Class name must be at least 3 characters'),
-  useLocation: z.boolean().default(false),
+  useLocation: z.boolean(),
   latitude: z.string().optional(),
   longitude: z.string().optional(),
   distanceThreshold: z.string().optional(),
   scheduleType: z.enum(['one-time', 'daily', 'weekly', 'custom']),
   durationMinutes: z.string().min(1, 'Duration is required'),
   gracePeriodMinutes: z.string().min(1, 'Grace period is required'),
-  autoStart: z.boolean().default(false),
-  autoEnd: z.boolean().default(false),
+  autoStart: z.boolean(),
+  autoEnd: z.boolean(),
   // Recurrence pattern fields (optional, only for custom)
   recurrenceFrequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
   recurrenceInterval: z.string().optional(),
@@ -71,24 +71,6 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors }, control } = useForm<ClassFormData>({
     resolver: zodResolver(classFormSchema),
-    defaultValues: {
-      name: '',
-      useLocation: false,
-      distanceThreshold: DEFAULT_DISTANCE_THRESHOLD.toString(),
-      scheduleType: 'one-time',
-      durationMinutes: '60',
-      gracePeriodMinutes: '15',
-      autoStart: false,
-      autoEnd: false,
-      recurrenceFrequency: 'weekly',
-      recurrenceInterval: '1',
-      recurrenceDaysOfWeek: [],
-      recurrenceDaysOfMonth: [],
-      recurrenceEndDate: '',
-      recurrenceOccurrences: '',
-      startTime: '',
-      endTime: '',
-    } satisfies ClassFormData
   });
 
   const useLocationValue = watch('useLocation');
