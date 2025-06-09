@@ -16,15 +16,15 @@ import { Save, MapPin, Loader2, Navigation, AlertTriangle, QrCode, Fingerprint, 
 
 const editClassFormSchema = z.object({
   name: z.string().min(3, 'Class name must be at least 3 characters'),
-  useLocation: z.boolean().default(false),
+  useLocation: z.boolean().optional().default(false),
   latitude: z.string().optional(),
   longitude: z.string().optional(),
   distanceThreshold: z.string().optional(),
-  scheduleType: z.enum(['one-time', 'daily', 'weekly', 'custom']).default('one-time'),
+  scheduleType: z.enum(['one-time', 'daily', 'weekly', 'custom']).optional().default('one-time'),
   durationMinutes: z.string().min(1, 'Duration is required'),
   gracePeriodMinutes: z.string().min(1, 'Grace period is required'),
-  autoStart: z.boolean().default(false),
-  autoEnd: z.boolean().default(false),
+  autoStart: z.boolean().optional().default(false),
+  autoEnd: z.boolean().optional().default(false),
   recurrenceFrequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
   recurrenceInterval: z.string().optional(),
   recurrenceDaysOfWeek: z.array(z.number()).optional(),
@@ -87,7 +87,7 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
       recurrenceOccurrences: classInstance.recurrencePattern?.occurrences?.toString() || '',
       startTime: classInstance.startTime ? classInstance.startTime.slice(0, 16) : '',
       endTime: classInstance.endTime ? classInstance.endTime.slice(0, 16) : '',
-    }
+    } as EditClassFormData
   });
 
   // Reset form values when the dialog is opened or class changes
@@ -112,7 +112,7 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
         recurrenceOccurrences: classInstance.recurrencePattern?.occurrences?.toString() || '',
         startTime: classInstance.startTime ? classInstance.startTime.slice(0, 16) : '',
         endTime: classInstance.endTime ? classInstance.endTime.slice(0, 16) : '',
-      });
+      } as EditClassFormData);
       setSelectedMethods(classInstance.verification_methods || ['QR']);
     }
   }, [isOpen, classInstance, reset]);
