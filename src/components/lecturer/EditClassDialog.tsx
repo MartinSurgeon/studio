@@ -16,15 +16,15 @@ import { Save, MapPin, Loader2, Navigation, AlertTriangle, QrCode, Fingerprint, 
 
 const editClassFormSchema = z.object({
   name: z.string().min(3, 'Class name must be at least 3 characters'),
-  useLocation: z.boolean().optional().default(false),
+  useLocation: z.boolean().default(false),
   latitude: z.string().optional(),
   longitude: z.string().optional(),
   distanceThreshold: z.string().optional(),
-  scheduleType: z.enum(['one-time', 'daily', 'weekly', 'custom']).optional().default('one-time'),
+  scheduleType: z.enum(['one-time', 'daily', 'weekly', 'custom']).default('one-time'),
   durationMinutes: z.string().min(1, 'Duration is required'),
   gracePeriodMinutes: z.string().min(1, 'Grace period is required'),
-  autoStart: z.boolean().optional().default(false),
-  autoEnd: z.boolean().optional().default(false),
+  autoStart: z.boolean().default(false),
+  autoEnd: z.boolean().default(false),
   recurrenceFrequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
   recurrenceInterval: z.string().optional(),
   recurrenceDaysOfWeek: z.array(z.number()).optional(),
@@ -66,7 +66,7 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
   const { toast } = useToast();
   const [selectedMethods, setSelectedMethods] = useState<VerificationMethod[]>(classInstance.verification_methods || ['QR']);
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors }, control } = useForm<EditClassFormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors }, control } = useForm({
     resolver: zodResolver(editClassFormSchema),
     defaultValues: {
       name: classInstance.name,
@@ -74,11 +74,11 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
       latitude: classInstance.location?.latitude?.toString() || '',
       longitude: classInstance.location?.longitude?.toString() || '',
       distanceThreshold: classInstance.distanceThreshold?.toString() || DEFAULT_DISTANCE_THRESHOLD.toString(),
-      scheduleType: classInstance.scheduleType || 'one-time',
+      scheduleType: classInstance.scheduleType ?? 'one-time',
       durationMinutes: classInstance.durationMinutes?.toString() || '60',
       gracePeriodMinutes: classInstance.gracePeriodMinutes?.toString() || '15',
-      autoStart: classInstance.autoStart || false,
-      autoEnd: classInstance.autoEnd || false,
+      autoStart: classInstance.autoStart ?? false,
+      autoEnd: classInstance.autoEnd ?? false,
       recurrenceFrequency: classInstance.recurrencePattern?.frequency || 'weekly',
       recurrenceInterval: classInstance.recurrencePattern?.interval?.toString() || '1',
       recurrenceDaysOfWeek: classInstance.recurrencePattern?.daysOfWeek || [],
@@ -87,7 +87,7 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
       recurrenceOccurrences: classInstance.recurrencePattern?.occurrences?.toString() || '',
       startTime: classInstance.startTime ? classInstance.startTime.slice(0, 16) : '',
       endTime: classInstance.endTime ? classInstance.endTime.slice(0, 16) : '',
-    } as EditClassFormData
+    }
   });
 
   // Reset form values when the dialog is opened or class changes
@@ -99,11 +99,11 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
         latitude: classInstance.location?.latitude?.toString() || '',
         longitude: classInstance.location?.longitude?.toString() || '',
         distanceThreshold: classInstance.distanceThreshold?.toString() || DEFAULT_DISTANCE_THRESHOLD.toString(),
-        scheduleType: classInstance.scheduleType || 'one-time',
+        scheduleType: classInstance.scheduleType ?? 'one-time',
         durationMinutes: classInstance.durationMinutes?.toString() || '60',
         gracePeriodMinutes: classInstance.gracePeriodMinutes?.toString() || '15',
-        autoStart: classInstance.autoStart || false,
-        autoEnd: classInstance.autoEnd || false,
+        autoStart: classInstance.autoStart ?? false,
+        autoEnd: classInstance.autoEnd ?? false,
         recurrenceFrequency: classInstance.recurrencePattern?.frequency || 'weekly',
         recurrenceInterval: classInstance.recurrencePattern?.interval?.toString() || '1',
         recurrenceDaysOfWeek: classInstance.recurrencePattern?.daysOfWeek || [],
@@ -112,7 +112,7 @@ export default function EditClassDialog({ classInstance, isOpen, onOpenChange, o
         recurrenceOccurrences: classInstance.recurrencePattern?.occurrences?.toString() || '',
         startTime: classInstance.startTime ? classInstance.startTime.slice(0, 16) : '',
         endTime: classInstance.endTime ? classInstance.endTime.slice(0, 16) : '',
-      } as EditClassFormData);
+      });
       setSelectedMethods(classInstance.verification_methods || ['QR']);
     }
   }, [isOpen, classInstance, reset]);
