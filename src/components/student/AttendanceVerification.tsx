@@ -8,6 +8,7 @@ import { attendanceService } from '@/lib/services/attendance.service';
 import QrScanner from './QrScanner';
 import { MapPin, QrCode, Fingerprint, Camera, CreditCard } from 'lucide-react';
 import LoadingSpinner from '@/components/core/LoadingSpinner';
+import { VERIFICATION_METHODS } from '@/lib/constants';
 
 interface AttendanceVerificationProps {
   classInstance: Class;
