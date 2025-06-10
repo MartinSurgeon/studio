@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import type { Class, AttendanceRecord } from '@/lib/types';
+import type { Class, AttendanceRecord, VerificationMethod } from '@/lib/types';
 import { attendanceService } from '@/lib/services/attendance.service';
 import QrScanner from './QrScanner';
 import { MapPin, QrCode, Fingerprint, Camera, CreditCard } from 'lucide-react';
@@ -22,7 +22,7 @@ export default function AttendanceVerification({ classInstance, studentId, onAtt
   const [activeTab, setActiveTab] = useState('qr');
 
   // Filter verification methods based on what's enabled for the class
-  const enabledMethods = classInstance.verification_methods || ['QR'];
+  const enabledMethods = (classInstance.verification_methods || ['QR']) as VerificationMethod[];
   const availableTabs = VERIFICATION_METHODS.filter(method => 
     enabledMethods.includes(method.key)
   );
