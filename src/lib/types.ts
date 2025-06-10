@@ -25,6 +25,7 @@ export interface Class {
   endTime?: string;
   active: boolean;
   lecturerId: string;
+  lecturerName?: string;
   qrCodeValue?: string;
   qrCodeExpiry?: number;
   createdAt: string;
