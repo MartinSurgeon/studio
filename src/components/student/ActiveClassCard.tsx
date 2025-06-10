@@ -1141,7 +1141,7 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
         <div className="flex flex-col items-center justify-center py-8 bg-blue-50/70 rounded-b-2xl">
           <Button
             onClick={handleLocationCheckIn}
-            disabled={isLoading || hasExistingAttendance}
+            disabled={isLoading || !!hasExistingAttendance}
             className="w-full max-w-xs"
             data-action="mark-attendance"
           >
