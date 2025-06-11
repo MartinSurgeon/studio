@@ -5,11 +5,11 @@
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
   "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "https://wpkfgsgvkycyqmiptnmf.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indwa2Znc2d2a3ljeXFtaXB0bm1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcxMzk1MjgsImV4cCI6MjA2MjcxNTUyOH0.cgfQGTfzSc5cgjGGS0nsBZBtLfnG609NeWK6FsgH3E1o",
-    "SUPABASE_URL": "https://wpkfgsgvkycyqmiptnmf.supabase.co",
-    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indwa2Znc2d2a3ljeXFtaXB0bm1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcxMzk1MjgsImV4cCI6MjA2MjcxNTUyOH0.cgfQGTfzSc5cgjGGS0nsBZBtLfnG609NeWK6FsgH3E1o",
-    "NODE_OPTIONS": "--max_old_space_size=4096",
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
+    "SUPABASE_URL": "@supabase_url",
+    "SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "NODE_OPTIONS": "--max-old-space-size=4096",
     "NEXT_TELEMETRY_DISABLED": "1"
   },
   "ignoreCommand": "git ls-files attendance-tracker/**",
@@ -24,5 +24,10 @@
       "src": "/(.*)",
       "dest": "/"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "attendance-tracker/**": false
+    }
+  }
 } 
