@@ -89,7 +89,7 @@ export const authService = {
           id: userData.id,
           email: userData.email,
           indexNumber: userData.index_number || undefined,
-          displayName: userData.display_name || undefined,
+          displayName: userData.display_name ?? undefined,
           role: userData.role
         };
       } catch (error) {
@@ -177,7 +177,7 @@ export const authService = {
               return {
                 id: createdUserData.id,
                 email: createdUserData.email,
-                displayName: createdUserData.display_name,
+                displayName: createdUserData.display_name ?? undefined,
                 role: createdUserData.role
               };
             }
@@ -189,7 +189,7 @@ export const authService = {
           return {
             id: authData.user.id,
             email: authData.user.email!,
-            displayName: authData.user.user_metadata?.display_name || authData.user.email!.split('@')[0],
+            displayName: authData.user.user_metadata?.display_name ?? authData.user.email!.split('@')[0],
             role: authData.user.user_metadata?.role || 'lecturer' // Default to lecturer for this method
           };
         }
@@ -199,7 +199,7 @@ export const authService = {
           return {
             id: authData.user.id,
             email: authData.user.email!,
-            displayName: authData.user.user_metadata?.display_name || authData.user.email!.split('@')[0],
+            displayName: authData.user.user_metadata?.display_name ?? authData.user.email!.split('@')[0],
             role: 'lecturer' // Default role for this method
           };
         }
@@ -208,7 +208,7 @@ export const authService = {
           id: userData.id,
           email: userData.email,
           indexNumber: userData.index_number || undefined,
-          displayName: userData.display_name || undefined,
+          displayName: userData.display_name ?? undefined,
           role: userData.role
         };
       } catch (error) {
@@ -217,7 +217,7 @@ export const authService = {
         return {
           id: authData.user.id,
           email: authData.user.email!,
-          displayName: authData.user.email!.split('@')[0],
+          displayName: authData.user.user_metadata?.display_name ?? authData.user.email!.split('@')[0],
           role: 'lecturer' // Default to lecturer for this method
         };
       }
@@ -395,7 +395,7 @@ export const authService = {
         return {
           id: userData.id,
           email: userData.email,
-          displayName: userData.display_name || displayName,
+          displayName: userData.display_name ?? undefined,
           role: userData.role || 'lecturer'
         };
       } catch (profileError) {
@@ -542,7 +542,7 @@ export const authService = {
           id: userData.id,
           email: userData.email,
           indexNumber: userData.index_number || indexNumber,
-          displayName: userData.display_name || displayNameToUse,
+          displayName: userData.display_name ?? undefined,
           role: userData.role || 'student'
         };
       } catch (profileError) {
