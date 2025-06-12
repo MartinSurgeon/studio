@@ -32,7 +32,7 @@ const nextConfig = {
   },
   // Add experimental features to improve build
   experimental: {
-    optimizeCss: true,
+    optimizeCss: false,
     scrollRestoration: true,
   },
   // Increase memory limit

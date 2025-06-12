@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import type { Class, AttendanceRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import QrCodeDisplay from './QrCodeDisplay';
-import EditClassDialog from './EditClassDialog';
+import QrCodeDisplay from '@/components/lecturer/QrCodeDisplay';
+import EditClassDialog from '@/components/lecturer/EditClassDialog';
 import { PlayCircle, StopCircle, Edit3, Trash2, Eye, Users, MapPin, AlertTriangle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import {

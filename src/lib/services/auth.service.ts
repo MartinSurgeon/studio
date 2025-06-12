@@ -90,7 +90,7 @@ export const authService = {
           email: userData.email,
           indexNumber: userData.index_number || undefined,
           displayName: userData.display_name ?? undefined,
-          role: userData.role
+          role: userData.role as UserRole || 'lecturer'
         };
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -209,7 +209,7 @@ export const authService = {
           email: userData.email,
           indexNumber: userData.index_number || undefined,
           displayName: userData.display_name ?? undefined,
-          role: userData.role
+          role: userData.role as UserRole || 'lecturer'
         };
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -396,7 +396,7 @@ export const authService = {
           id: userData.id,
           email: userData.email,
           displayName: userData.display_name ?? undefined,
-          role: userData.role || 'lecturer'
+          role: userData.role as UserRole || 'lecturer'
         };
       } catch (profileError) {
         console.error('Profile creation exception:', profileError);
@@ -543,7 +543,7 @@ export const authService = {
           email: userData.email,
           indexNumber: userData.index_number || indexNumber,
           displayName: userData.display_name ?? undefined,
-          role: userData.role || 'student'
+          role: userData.role as UserRole || 'lecturer'
         };
       } catch (profileError) {
         console.error('Student profile creation exception:', profileError);

@@ -52,3 +52,12 @@ export interface AttendanceRecord {
   verifiedLocation?: GeoLocation;
   deviceId?: string; // Added to track the device that recorded attendance
 }
+
+export interface UserData {
+  id: string;
+  email: string;
+  displayName?: string;
+  role: UserRole;
+  indexNumber?: string;
+  // Add any other relevant properties here
+}
