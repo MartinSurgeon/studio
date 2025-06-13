@@ -5,14 +5,10 @@
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
   "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
-    "SUPABASE_URL": "@supabase_url",
-    "SUPABASE_ANON_KEY": "@supabase_anon_key",
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "NEXT_TELEMETRY_DISABLED": "1"
   },
-  "ignoreCommand": "git ls-files attendance-tracker/**",
+  "ignoreCommand": null,
   "builds": [
     {
       "src": "package.json",
