@@ -21,12 +21,12 @@ const nextConfig = {
     };
 
     // Handle the critical dependency warning
-    if (!isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        '@supabase/realtime-js': false,
-      };
-    }
+    // if (!isServer) {
+    //   config.resolve.alias = {
+    //     ...config.resolve.alias,
+    //     '@supabase/realtime-js': false,
+    //   };
+    // }
 
     return config;
   },
