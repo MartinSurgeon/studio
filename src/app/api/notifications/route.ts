@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
-import { readFileSync } from 'fs';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Firebase Admin
-const serviceAccount = JSON.parse(readFileSync('./serviceAccountKey.json', 'utf8'));
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY_JSON!);
 const app = initializeApp({
   credential: cert(serviceAccount),
   projectId: 'geoattend-xihty'
