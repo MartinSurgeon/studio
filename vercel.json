@@ -8,7 +8,7 @@
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "NEXT_TELEMETRY_DISABLED": "1"
   },
-  "ignoreCommand": "git ls-files attendance-tracker/**",
+  "ignoreCommand": null,
   "builds": [
     {
       "src": "package.json",
