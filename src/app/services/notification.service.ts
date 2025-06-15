@@ -17,7 +17,7 @@ export class NotificationService {
   };
 
   // Replace this with your VAPID key from Firebase Console
-  private readonly VAPID_KEY = 'YOUR_VAPID_KEY_HERE';
+  private readonly VAPID_KEY = 'BOnwxYZ7BmD5oAp6VjStYqo9IisIE-H97Gpkka8htIGaYFE_Zv5XmtPyCmSNWj5DaYJoKYznUSRp6RCEw8Htsvo';
 
   constructor() {
     this.init();

@@ -4,8 +4,11 @@ import './globals.css';
 import { AppProvider } from '@/contexts/AppContext';
 import { Toaster } from "@/components/ui/toaster";
 import BackgroundServiceProvider from '@/components/core/BackgroundServiceProvider';
+import { NotificationService } from '@/app/services/notification.service';
 
 const inter = Inter({ subsets: ['latin'] });
+
+const notificationService = new NotificationService();
 
 export const viewport: Viewport = {
   width: 'device-width',
