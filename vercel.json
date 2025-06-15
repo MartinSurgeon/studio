@@ -1,8 +1,7 @@
 {
   "version": 2,
-  "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "installCommand": "npm install --legacy-peer-deps",
+  "framework": null,
+  "buildCommand": "npm install --legacy-peer-deps && npm run build && cd attendance-tracker && npm install --legacy-peer-deps && npm run build:web",
   "outputDirectory": ".next",
   "env": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
@@ -13,12 +12,21 @@
     {
       "src": "package.json",
       "use": "@vercel/next"
+    },
+    {
+      "src": "attendance-tracker/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
     }
   ],
   "routes": [
     {
+      "src": "/attendance-tracker/(.*)",
+      "dest": "/attendance-tracker/dist/$1"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/"
+      "dest": "/$1"
     }
   ],
   "git": {
