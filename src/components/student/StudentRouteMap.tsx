@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Navigation, CornerDownRight, RefreshCw } from 'lucide-react';
+import { MapPin, Navigation, CornerDownRight, RefreshCw, Walk, Car } from 'lucide-react';
 import LoadingSpinner from '@/components/core/LoadingSpinner';
 import type { GeoLocation } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +17,7 @@ interface StudentRouteMapProps {
   distanceThreshold?: number;
   onUpdateLocation?: (newLocation: GeoLocation) => void;
   onClose?: () => void;
+  defaultTravelMode?: google.maps.TravelMode;
 }
 
 const mapContainerStyle = {
@@ -48,7 +49,8 @@ export default function StudentRouteMap({
   distanceToClass,
   distanceThreshold = 100,
   onUpdateLocation,
-  onClose
+  onClose,
+  defaultTravelMode
 }: StudentRouteMapProps) {
   const [isTracking, setIsTracking] = useState(false);
   const [watchId, setWatchId] = useState<number | null>(null);
@@ -56,6 +58,7 @@ export default function StudentRouteMap({
   const [directionsRequest, setDirectionsRequest] = useState<any | null>(null);
   const [locationHistory, setLocationHistory] = useState<GeoLocation[]>([]);
   const { toast } = useToast();
+  const [currentTravelMode, setCurrentTravelMode] = useState<google.maps.TravelMode>('WALKING');
 
   // NEW: Google Maps API loader
   const { isLoaded, loadError } = useJsApiLoader({
@@ -108,12 +111,12 @@ export default function StudentRouteMap({
       setDirectionsRequest({
             origin: { lat: currentLocation.latitude, lng: currentLocation.longitude },
             destination: { lat: classLocation.latitude, lng: classLocation.longitude },
-        travelMode: 'WALKING',
+        travelMode: currentTravelMode,
       });
             } else {
       setDirectionsRequest(null);
     }
-  }, [currentLocation, classLocation]);
+  }, [currentLocation, classLocation, currentTravelMode]);
 
   // Track location history for path
   useEffect(() => {
@@ -385,6 +388,22 @@ export default function StudentRouteMap({
             onClick={resetRoute}
               >
                 <RefreshCw className="mr-1 h-4 w-4" /> Reset Route
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={currentTravelMode === 'WALKING' ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentTravelMode('WALKING')}
+              >
+                <Walk className="mr-1 h-4 w-4" /> Walk
+              </Button>
+              <Button
+                variant={currentTravelMode === 'DRIVING' ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentTravelMode('DRIVING')}
+              >
+                <Car className="mr-1 h-4 w-4" /> Drive
               </Button>
             </div>
       </CardContent>
