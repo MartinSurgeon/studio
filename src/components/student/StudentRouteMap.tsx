@@ -68,10 +68,10 @@ export default function StudentRouteMap({
   const studentMarkerRef = useRef<any>(null);
 
   // Map center
-      const center = classLocation 
-        ? { lat: classLocation.latitude, lng: classLocation.longitude }
-        : currentLocation 
-          ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
+      const center = currentLocation
+        ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
+        : classLocation 
+          ? { lat: classLocation.latitude, lng: classLocation.longitude }
       : { lat: 7.9465, lng: -1.0232 }; // Default to Ghana center
 
   // Recenter map
