@@ -15,6 +15,7 @@ import { DEFAULT_DISTANCE_THRESHOLD, LECTURER_MOCK_ID } from '@/config';
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, MapPin, Loader2, Navigation } from 'lucide-react';
 import { classService } from '@/lib/services/class.service';
+import { Controller } from 'react-hook-form';
 
 const classFormSchema = z.object({
   name: z.string().min(3, 'Class name must be at least 3 characters'),
@@ -79,6 +80,13 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
   const recurrenceDaysOfWeek = watch('recurrenceDaysOfWeek');
   const recurrenceDaysOfMonth = watch('recurrenceDaysOfMonth');
   const recurrenceEndDate = watch('recurrenceEndDate');
+
+  // ADDED: Log errors for debugging
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log("Form Errors:", errors);
+    }
+  }, [errors]);
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -151,7 +159,7 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
   };
 
   const onSubmit: SubmitHandler<ClassFormData> = async (data) => {
-    console.log("CreateClassForm: onSubmit data", data);
+    console.log("CreateClassForm: Attempting onSubmit", { data, errors });
     if (!user || !user.id) {
       toast({ 
         title: "Authentication Error", 
@@ -186,8 +194,8 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
         recurrencePattern: data.scheduleType === 'custom' ? {
           frequency: data.recurrenceFrequency || 'weekly',
           interval: data.recurrenceInterval ? parseInt(data.recurrenceInterval, 10) : 1,
-          daysOfWeek: data.recurrenceFrequency === 'weekly' ? data.recurrenceDaysOfWeek : undefined,
-          daysOfMonth: data.recurrenceFrequency === 'monthly' ? data.recurrenceDaysOfMonth : undefined,
+          daysOfWeek: data.recurrenceFrequency === 'weekly' ? (data.recurrenceDaysOfWeek || []) : undefined,
+          daysOfMonth: data.recurrenceFrequency === 'monthly' ? (data.recurrenceDaysOfMonth || []) : undefined,
           endDate: data.recurrenceEndDate || undefined,
           occurrences: data.recurrenceOccurrences ? parseInt(data.recurrenceOccurrences, 10) : undefined,
         } : undefined,
@@ -247,9 +255,22 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
               {formError}
             </div>
           )}
+          {/* ADDED: General error display */}
+          {Object.keys(errors).length > 0 && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <strong className="font-bold">Form Validation Errors:</strong>
+              <ul className="mt-2 list-disc list-inside">
+                {Object.entries(errors).map(([key, error]) => (
+                  <li key={key} className="text-sm">
+                    <span className="font-medium">{key}:</span> {error?.message || 'Invalid value'}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="name">Class Name</Label>
-            <Input id="name" {...register('name')} placeholder="e.g., Introduction to AI" className={errors.name ? 'border-destructive' : ''} />
+            <Input id="name" {...register('name')} className={errors.name ? 'border-destructive' : ''} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
 
@@ -257,6 +278,17 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
             <Checkbox id="useLocation" {...register('useLocation')} checked={useLocationValue} onCheckedChange={(checked) => {
                setValue('useLocation', !!checked);
                if (!checked) {
+                // If user is unchecking Location, ensure other methods exist
+                const methodsWithoutLocation = selectedMethods.filter(m => m !== 'Location');
+                if (methodsWithoutLocation.length === 0) {
+                  toast({ title: "Verification Method Required", description: "At least one verification method must be selected.", variant: "destructive" });
+                  setValue('useLocation', true); // Revert checkbox state
+                  // Also re-add 'Location' to selectedMethods if it was the only one
+                  if (!selectedMethods.includes('Location')) {
+                    setSelectedMethods((prev) => [...prev, 'Location']);
+                  }
+                  return;
+                }
                 setValue('latitude', '');
                 setValue('longitude', '');
                 setValue('distanceThreshold', DEFAULT_DISTANCE_THRESHOLD.toString());
@@ -300,21 +332,42 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
                   )}
                 </Button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="latitude">Latitude</Label>
-                  <Input id="latitude" type="number" step="any" {...register('latitude')} placeholder="e.g., 34.0522" className={errors.latitude ? 'border-destructive' : ''}/>
+                  <Input
+                    id="latitude"
+                    type="number"
+                    step="any"
+                    {...register('latitude')}
+                    placeholder="e.g., 5.6037"
+                    className={errors.latitude ? 'border-destructive' : ''}
+                  />
                   {errors.latitude && <p className="text-sm text-destructive">{errors.latitude.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="longitude">Longitude</Label>
-                  <Input id="longitude" type="number" step="any" {...register('longitude')} placeholder="e.g., -118.2437" className={errors.longitude ? 'border-destructive' : ''}/>
+                  <Input
+                    id="longitude"
+                    type="number"
+                    step="any"
+                    {...register('longitude')}
+                    placeholder="e.g., -0.1870"
+                    className={errors.longitude ? 'border-destructive' : ''}
+                  />
                   {errors.longitude && <p className="text-sm text-destructive">{errors.longitude.message}</p>}
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="distanceThreshold">Distance Threshold (meters)</Label>
-                <Input id="distanceThreshold" type="number" {...register('distanceThreshold')} defaultValue={DEFAULT_DISTANCE_THRESHOLD} className={errors.distanceThreshold ? 'border-destructive' : ''} />
+                <Input
+                  id="distanceThreshold"
+                  type="number"
+                  min={1}
+                  {...register('distanceThreshold')}
+                  placeholder={DEFAULT_DISTANCE_THRESHOLD.toString()}
+                  className={errors.distanceThreshold ? 'border-destructive' : ''}
+                />
                 {errors.distanceThreshold && <p className="text-sm text-destructive">{errors.distanceThreshold.message}</p>}
               </div>
             </div>
@@ -446,12 +499,36 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
 
           <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
             <div className="flex items-center space-x-2">
-              <Checkbox id="autoStart" {...register('autoStart')} />
-              <Label htmlFor="autoStart">Auto-start class at scheduled time</Label>
+              <Controller
+                name="autoStart"
+                control={control}
+                render={({ field }) => (
+                  <>
+                    <Checkbox
+                      id="autoStart"
+                      checked={!!field.value}
+                      onCheckedChange={(checked) => field.onChange(!!checked)}
+                    />
+                    <Label htmlFor="autoStart">Auto-start class at scheduled time</Label>
+                  </>
+                )}
+              />
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="autoEnd" {...register('autoEnd')} />
-              <Label htmlFor="autoEnd">Auto-end class after duration</Label>
+              <Controller
+                name="autoEnd"
+                control={control}
+                render={({ field }) => (
+                  <>
+                    <Checkbox
+                      id="autoEnd"
+                      checked={!!field.value}
+                      onCheckedChange={(checked) => field.onChange(!!checked)}
+                    />
+                    <Label htmlFor="autoEnd">Auto-end class after duration</Label>
+                  </>
+                )}
+              />
             </div>
           </div>
 
@@ -465,6 +542,8 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
                     checked={selectedMethods.includes(method.key)}
                     onCheckedChange={(checked) => {
                       if (method.key === 'Location') {
+                        // This will trigger the useLocation checkbox's onCheckedChange, 
+                        // which now contains the logic to prevent empty selectedMethods
                         setValue('useLocation', !!checked);
                          if (!checked) {
                             setValue('latitude', '');
@@ -478,6 +557,14 @@ export default function CreateClassForm({ onClassCreated }: CreateClassFormProps
                               });
                          }
                       } else {
+                        // For non-Location methods: prevent unchecking if it's the last one
+                        if (!checked) {
+                          const methodsAfterRemoval = selectedMethods.filter(m => m !== method.key);
+                          if (methodsAfterRemoval.length === 0) {
+                             toast({ title: "Verification Method Required", description: "At least one verification method must be selected.", variant: "destructive" });
+                             return; // Prevent unchecking
+                          }
+                        }
                         setSelectedMethods((prev) =>
                           checked
                             ? [...prev, method.key]
