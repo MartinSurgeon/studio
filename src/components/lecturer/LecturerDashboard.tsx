@@ -15,6 +15,9 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { classService } from '@/lib/services/class.service';
 import { attendanceService } from '@/lib/services/attendance.service';
+import { userService } from '@/lib/services/user.service';
+import { ChartContainer } from '@/components/ui/chart';
+import * as Recharts from 'recharts';
 
 export default function LecturerDashboard() {
   const { classes, setClasses, attendanceRecords, setAttendanceRecords, user } = useAppContext();
@@ -24,6 +27,7 @@ export default function LecturerDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
   const [fetchAttempted, setFetchAttempted] = useState(false);
+  const [studentDisplayData, setStudentDisplayData] = useState<Record<string, { displayName?: string, indexNumber?: string }>>({});
 
   // Function to refresh attendance data for active classes
   const refreshAttendanceData = useCallback(async (showToastOrClassId: boolean | string = false) => {
@@ -260,6 +264,34 @@ export default function LecturerDashboard() {
 
     return () => clearInterval(classPollingInterval);
   }, [user, classes, setClasses]);
+
+  useEffect(() => {
+    const fetchStudentNames = async () => {
+      const uniqueStudentIds = [...new Set(attendanceRecords.map(record => record.studentId))];
+      const newStudentData: Record<string, { displayName?: string, indexNumber?: string }> = {};
+
+      await Promise.all(uniqueStudentIds.map(async (studentId) => {
+        if (!studentDisplayData[studentId]) { // Only fetch if not already in state
+          try {
+            const student = await userService.getUserById(studentId);
+            if (student) {
+              newStudentData[studentId] = {
+                displayName: student.displayName,
+                indexNumber: student.indexNumber
+              };
+            }
+          } catch (error) {
+            console.error(`Error fetching data for student ${studentId}:`, error);
+          }
+        }
+      }));
+      setStudentDisplayData(prevData => ({ ...prevData, ...newStudentData }));
+    };
+
+    if (attendanceRecords.length > 0) {
+      fetchStudentNames();
+    }
+  }, [attendanceRecords]);
 
   const handleClassCreated = (newClass: Class) => {
     setClasses(prevClasses => [...prevClasses, newClass]);
@@ -556,15 +588,16 @@ export default function LecturerDashboard() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {statistics.recentAttendance.length > 0 ? statistics.recentAttendance.map(record => {
                       const classInfo = classes.find(c => c.id === record.classId);
+                      const studentInfo = studentDisplayData[record.studentId];
                       return (
                         <tr key={record.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex flex-col">
                               <span className="text-sm font-medium">
-                                {record.studentId}
+                                {studentInfo?.displayName || 'Unknown Student'}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                Index Number
+                                Index: {studentInfo?.indexNumber || record.studentId}
                               </span>
                             </div>
                           </td>
@@ -615,6 +648,58 @@ export default function LecturerDashboard() {
                   </tbody>
                 </table>
               </Card>
+            </div>
+
+            {/* Per-student attendance graphs */}
+            <div className="mt-10 space-y-8">
+              <h3 className="text-xl font-medium mb-4">Student Attendance Trends</h3>
+              {Object.entries(studentDisplayData).map(([studentId, studentInfo]) => {
+                // Get this student's attendance records, sorted by date
+                const studentRecords = attendanceRecords
+                  .filter(r => r.studentId === studentId)
+                  .sort((a, b) => new Date(a.checkInTime).getTime() - new Date(b.checkInTime).getTime());
+                if (studentRecords.length === 0) return null;
+                // Prepare data for the chart
+                let cumulative = 0;
+                const chartData = studentRecords.map((rec, idx) => {
+                  // Status encoding: Present=2, Late=1, Absent=0
+                  let statusNum = 0;
+                  if (rec.status === 'Present') statusNum = 2;
+                  else if (rec.status === 'Late') statusNum = 1;
+                  // Cumulative count only for Present
+                  if (rec.status === 'Present') cumulative++;
+                  return {
+                    date: new Date(rec.checkInTime).toLocaleDateString(),
+                    status: statusNum,
+                    cumulative: cumulative,
+                  };
+                });
+                return (
+                  <Card key={studentId} className="p-6">
+                    <div className="mb-2 font-semibold">
+                      {studentInfo.displayName || 'Unknown Student'}
+                      {studentInfo.indexNumber ? ` (Index: ${studentInfo.indexNumber})` : ''}
+                    </div>
+                    <div style={{ width: '100%', height: 300 }}>
+                      <ChartContainer config={{
+                        status: { label: 'Status', color: '#6366f1' },
+                        cumulative: { label: 'Cumulative', color: '#22c55e' },
+                      }}>
+                        <Recharts.LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                          <Recharts.CartesianGrid strokeDasharray="3 3" />
+                          <Recharts.XAxis dataKey="date" />
+                          <Recharts.YAxis yAxisId="left" domain={[0, 2]} ticks={[0, 1, 2]} tickFormatter={v => v === 2 ? 'Present' : v === 1 ? 'Late' : 'Absent'} />
+                          <Recharts.YAxis yAxisId="right" orientation="right" allowDecimals={false} />
+                          <Recharts.Tooltip />
+                          <Recharts.Legend />
+                          <Recharts.Line yAxisId="left" type="monotone" dataKey="status" stroke="#6366f1" name="Status" dot />
+                          <Recharts.Line yAxisId="right" type="monotone" dataKey="cumulative" stroke="#22c55e" name="Cumulative" dot />
+                        </Recharts.LineChart>
+                      </ChartContainer>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         </TabsContent>

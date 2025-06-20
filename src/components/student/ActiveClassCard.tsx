@@ -18,6 +18,7 @@ import { attendanceService } from '@/lib/services/attendance.service';
 import StudentRouteMap from './StudentRouteMap';
 import { cn } from '@/lib/utils';
 import { userService } from '@/lib/services/user.service';
+import { Progress } from '@/components/ui/progress';
 
 interface ActiveClassCardProps {
   classItem: Class;
@@ -46,6 +47,10 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
   const [isMarkingAttendance, setIsMarkingAttendance] = useState(false);
   const [lecturerName, setLecturerName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [attendanceWindowClosed, setAttendanceWindowClosed] = useState(false);
+
+  console.log('ActiveClassCard classItem:', classItem);
 
   useEffect(() => {
     const fetchLecturerName = async () => {
@@ -932,6 +937,43 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
   const distance = calculateDistanceToClass();
   const threshold = classItem.distanceThreshold || 100; // Default to 100m if not set
 
+  useEffect(() => {
+    if (!classItem.endTime || !classItem.gracePeriodMinutes) return;
+    const attendanceWindowEnd = new Date(new Date(classItem.endTime).getTime() + classItem.gracePeriodMinutes * 60000);
+    const updateTimer = () => {
+      const now = new Date();
+      const diff = attendanceWindowEnd.getTime() - now.getTime();
+      setTimeLeft(diff > 0 ? diff : 0);
+      setAttendanceWindowClosed(diff <= 0);
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [classItem.endTime, classItem.gracePeriodMinutes]);
+
+  // Helper to format ms to mm:ss
+  const formatTime = (ms: number) => {
+    if (ms <= 0) return '00:00';
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Calculate progress (0-100)
+  let progressPercent = 100;
+  if (classItem.endTime && classItem.gracePeriodMinutes) {
+    const windowStart = new Date(classItem.endTime).getTime();
+    const windowEnd = windowStart + classItem.gracePeriodMinutes * 60000;
+    const now = new Date().getTime();
+    const total = windowEnd - windowStart;
+    const left = Math.max(windowEnd - now, 0);
+    progressPercent = total > 0 ? (left / total) * 100 : 0;
+  }
+
+  // Card min height for consistent layout
+  const CARD_MIN_HEIGHT = 420; // px, adjust as needed for your design
+
   if (hasExistingAttendance) {
     return (
       <div className="transition-all duration-200">
@@ -974,8 +1016,11 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
   }
 
   return (
-    <div className="transition-all duration-200" data-class-id={classItem.id}>
-      <div className="bg-white rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
+    <div className="transition-all duration-300" data-class-id={classItem.id}>
+      <div
+        className="bg-white rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 flex flex-col"
+        style={{ minHeight: CARD_MIN_HEIGHT }}
+      >
         <div className="flex items-center justify-between px-6 pt-6 pb-2">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -983,18 +1028,47 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
             </div>
             <div className="flex items-center text-gray-500 text-sm gap-2">
               <User className="h-4 w-4 mr-1" />
-                  {lecturerName || 'Unknown Lecturer'}
+              {lecturerName || 'Unknown Lecturer'}
             </div>
           </div>
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 shadow-sm">
             Active
-                </span>
-              </div>
+          </span>
+        </div>
         <div className="flex items-center text-gray-400 text-xs gap-2 px-6 pb-2">
           <Clock className="h-4 w-4 mr-1" />
-                    Started at {new Date(classItem.startTime).toLocaleTimeString()}
+          Started at {new Date(classItem.startTime).toLocaleTimeString()}
           {classItem.endTime && <span className="ml-2">| Ends at {new Date(classItem.endTime).toLocaleTimeString()}</span>}
+        </div>
+        {/* Countdown Timer and Progress Bar */}
+        <div className="px-6 pb-2 min-h-[56px] flex flex-col justify-center">
+          {classItem.endTime && classItem.gracePeriodMinutes && (
+            !attendanceWindowClosed ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-sm text-blue-700 font-medium">
+                  <Clock className="h-4 w-4" />
+                  <span>Time left to mark attendance:</span>
+                  <span className="font-mono text-base">{formatTime(timeLeft ?? 0)}</span>
                 </div>
+                <div className="w-full bg-blue-100 rounded-full h-5 shadow-inner">
+                  <div
+                    className="h-5 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${progressPercent}%`,
+                      background: 'linear-gradient(90deg, #2563eb 0%, #38bdf8 100%)',
+                      boxShadow: '0 1px 6px 0 rgba(37,99,235,0.15)'
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-red-600 font-semibold min-h-[32px]">
+                <XCircle className="h-4 w-4" />
+                Attendance window has closed.
+              </div>
+            )
+          )}
+        </div>
         <hr className="border-gray-100 mx-6" />
         {/* Distance Check UI - only show if class has location, user has location, and not attended */}
         {classItem.location && currentLocation && !hasExistingAttendance && (
@@ -1027,7 +1101,7 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
               <Map className="h-5 w-5" />
               Show Route to Class
             </Button>
-            {showRouteMap && (
+            {showRouteMap && ( 
               <StudentRouteMap
                 classLocation={classItem.location}
                 currentLocation={currentLocation}
@@ -1045,7 +1119,10 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
             {classItem.verification_methods?.includes('QR') && (
               <Button
                 variant="outline"
-                onClick={() => setIsQrModalOpen(true)}
+                onClick={() => {
+                  console.log('QR button clicked');
+                  setIsQrModalOpen(true);
+                }}
                 className="flex items-center justify-center gap-2 group h-auto py-4"
               >
                 <QrCodeIcon className="h-5 w-5 group-hover:text-blue-600 transition" />
@@ -1163,7 +1240,41 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
             )}
           </Button>
         </div>
-          </div>
-          </div>
+      </div>
+      {/* Always render the QR modal when isQrModalOpen is true */}
+      <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>QR Attendance</DialogTitle>
+          </DialogHeader>
+          {attendanceWindowClosed ? (
+            <div className="text-red-600 font-semibold flex items-center gap-2">
+              <XCircle className="h-5 w-5" />
+              Attendance window has closed. You cannot mark attendance with QR code.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <QrScanner onScanSuccess={handleQrScanSuccess} onScanError={handleQrScanError} />
+              <div className="flex flex-col gap-2">
+                <label htmlFor="manual-qr-input" className="text-xs text-gray-500">Or enter QR code manually:</label>
+                <Input
+                  id="manual-qr-input"
+                  value={qrCodeInput}
+                  onChange={e => setQrCodeInput(e.target.value)}
+                  placeholder="Enter QR code value"
+                />
+                <Button onClick={handleManualQrSubmit} disabled={!qrCodeInput}>
+                  Submit QR Code
+                </Button>
+                {qrError && <div className="text-red-600 text-xs mt-1">{qrError}</div>}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsQrModalOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

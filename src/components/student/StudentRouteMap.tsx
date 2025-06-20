@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Navigation, CornerDownRight, RefreshCw, Walk, Car } from 'lucide-react';
+import { MapPin, Navigation, CornerDownRight, RefreshCw, Car, FootprintsIcon } from 'lucide-react';
+import { FootprintsIcon as Walk } from 'lucide-react';
 import LoadingSpinner from '@/components/core/LoadingSpinner';
 import type { GeoLocation } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -43,6 +44,8 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
+type TravelMode = 'WALKING' | 'DRIVING';
+
 export default function StudentRouteMap({
   classLocation,
   currentLocation,
@@ -58,7 +61,7 @@ export default function StudentRouteMap({
   const [directionsRequest, setDirectionsRequest] = useState<any | null>(null);
   const [locationHistory, setLocationHistory] = useState<GeoLocation[]>([]);
   const { toast } = useToast();
-  const [currentTravelMode, setCurrentTravelMode] = useState<google.maps.TravelMode>('WALKING');
+  const [travelMode, setTravelMode] = useState<TravelMode>('WALKING');
 
   // NEW: Google Maps API loader
   const { isLoaded, loadError } = useJsApiLoader({
@@ -111,12 +114,12 @@ export default function StudentRouteMap({
       setDirectionsRequest({
             origin: { lat: currentLocation.latitude, lng: currentLocation.longitude },
             destination: { lat: classLocation.latitude, lng: classLocation.longitude },
-        travelMode: currentTravelMode,
+        travelMode: travelMode,
       });
             } else {
       setDirectionsRequest(null);
     }
-  }, [currentLocation, classLocation, currentTravelMode]);
+  }, [currentLocation, classLocation, travelMode]);
 
   // Track location history for path
   useEffect(() => {
@@ -392,16 +395,16 @@ export default function StudentRouteMap({
             </div>
             <div className="flex gap-2">
               <Button
-                variant={currentTravelMode === 'WALKING' ? "default" : "outline"}
+                variant={travelMode === 'WALKING' ? "default" : "outline"}
                 size="sm"
-                onClick={() => setCurrentTravelMode('WALKING')}
+                onClick={() => setTravelMode('WALKING')}
               >
-                <Walk className="mr-1 h-4 w-4" /> Walk
+                <FootprintsIcon className="mr-1 h-4 w-4" /> Walk
               </Button>
               <Button
-                variant={currentTravelMode === 'DRIVING' ? "default" : "outline"}
+                variant={travelMode === 'DRIVING' ? "default" : "outline"}
                 size="sm"
-                onClick={() => setCurrentTravelMode('DRIVING')}
+                onClick={() => setTravelMode('DRIVING')}
               >
                 <Car className="mr-1 h-4 w-4" /> Drive
               </Button>

@@ -33,7 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/core/LoadingSpinner';
 import { classService } from '@/lib/services/class.service';
 import { attendanceService } from '@/lib/services/attendance.service';
-import { notificationService } from '@/lib/services/notification.service';
+import { NotificationService } from '@/app/services/notification.service';
 
 export default function StudentDashboard() {
   const { classes, setClasses, attendanceRecords, setAttendanceRecords, studentId, user, refreshAttendanceData } = useAppContext();
@@ -47,6 +47,8 @@ export default function StudentDashboard() {
   const { toast } = useToast();
   const classesRef = useRef(classes);
   const isRefreshingRef = useRef(isRefreshing);
+
+  const notificationService = new NotificationService();
 
   useEffect(() => {
     classesRef.current = classes;

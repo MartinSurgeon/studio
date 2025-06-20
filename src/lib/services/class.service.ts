@@ -5,7 +5,7 @@ import { addDays, addWeeks, addMonths, isAfter, isBefore, parseISO } from 'date-
 import { v4 as uuidv4 } from 'uuid';
 
 // Mapper to convert database rows to application types
-const mapToClass = (row: Tables<'classes'>): Class => ({
+const mapToClass = (row: Tables<'classes'> & { users?: { display_name: string | null } }): Class => ({
   id: row.id,
   name: row.name,
   location: row.latitude && row.longitude 
@@ -16,6 +16,7 @@ const mapToClass = (row: Tables<'classes'>): Class => ({
   endTime: row.end_time || undefined,
   active: row.active === true,
   lecturerId: row.lecturer_id,
+  lecturerName: row.users?.display_name || undefined,
   qrCodeValue: row.qr_code_value || undefined,
   qrCodeExpiry: row.qr_code_expiry || undefined,
   createdAt: row.created_at,
@@ -67,7 +68,7 @@ export const classService = {
       
       let query = supabase
         .from('classes')
-        .select('*');
+        .select('*, users(display_name)');
       
       if (lecturerId) {
         query = query.eq('lecturer_id', lecturerId);

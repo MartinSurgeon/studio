@@ -21,6 +21,11 @@ export default function AttendanceHistoryTable({ records, classes }: AttendanceH
     );
   }
 
+  // Calculate attendance count for each class for the current student
+  const getAttendanceCountForClass = (classId: string) => {
+    return records.filter(record => record.classId === classId && record.status === 'Present').length;
+  };
+
   const getClassName = (classId: string) => {
     const classInfo = classes.find(c => c.id === classId);
     return classInfo ? classInfo.name : 'Unknown Class';
@@ -57,12 +62,14 @@ export default function AttendanceHistoryTable({ records, classes }: AttendanceH
             <TableHead>Date & Time</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Method</TableHead>
+            <TableHead className="text-right">Attendance Count</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {sortedRecords.length > 0 ? (
             sortedRecords.map((record) => {
               const classInfo = classes.find(c => c.id === record.classId);
+              const attendanceCount = getAttendanceCountForClass(record.classId);
               return (
                 <TableRow key={record.id}>
                   <TableCell className="font-medium">
@@ -99,12 +106,15 @@ export default function AttendanceHistoryTable({ records, classes }: AttendanceH
                     {getMethodIcon(record.verificationMethod)}
                     <span className="ml-2">{record.verificationMethod}</span>
                   </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {attendanceCount}
+                  </TableCell>
                 </TableRow>
               );
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+              <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                 No attendance records found.
               </TableCell>
             </TableRow>

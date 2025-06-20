@@ -1,0 +1,16 @@
+
+> geoattend@0.1.0 build
+> next build
+
+   Γû▓ Next.js 14.1.0
+   - Environments: .env.local
+   - Experiments (use at your own risk):
+     ┬╖ scrollRestoration
+
+   Creating an optimized production build ...
+uncaughtException [Error: EPERM: operation not permitted, open 'C:\Users\JB\Downloads\Trakzyfirebase\studio\.next\trace'] {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'open',
+  path: 'C:\\Users\\JB\\Downloads\\Trakzyfirebase\\studio\\.next\\trace'
+}
