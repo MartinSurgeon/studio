@@ -49,6 +49,7 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
   const [isLoading, setIsLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [attendanceWindowClosed, setAttendanceWindowClosed] = useState(false);
+  const [progressPercent, setProgressPercent] = useState(100);
 
   console.log('ActiveClassCard classItem:', classItem);
 
@@ -940,11 +941,19 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
   useEffect(() => {
     if (!classItem.endTime || !classItem.gracePeriodMinutes) return;
     const attendanceWindowEnd = new Date(new Date(classItem.endTime).getTime() + classItem.gracePeriodMinutes * 60000);
+    const windowStart = new Date(classItem.endTime).getTime();
+    const windowEnd = windowStart + classItem.gracePeriodMinutes * 60000;
+    const total = windowEnd - windowStart;
+
     const updateTimer = () => {
       const now = new Date();
       const diff = attendanceWindowEnd.getTime() - now.getTime();
       setTimeLeft(diff > 0 ? diff : 0);
       setAttendanceWindowClosed(diff <= 0);
+
+      // Update progress percent
+      const left = Math.max(windowEnd - now.getTime(), 0);
+      setProgressPercent(total > 0 ? (left / total) * 100 : 0);
     };
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
@@ -959,17 +968,6 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
     const seconds = totalSeconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
-
-  // Calculate progress (0-100)
-  let progressPercent = 100;
-  if (classItem.endTime && classItem.gracePeriodMinutes) {
-    const windowStart = new Date(classItem.endTime).getTime();
-    const windowEnd = windowStart + classItem.gracePeriodMinutes * 60000;
-    const now = new Date().getTime();
-    const total = windowEnd - windowStart;
-    const left = Math.max(windowEnd - now, 0);
-    progressPercent = total > 0 ? (left / total) * 100 : 0;
-  }
 
   // Card min height for consistent layout
   const CARD_MIN_HEIGHT = 420; // px, adjust as needed for your design
@@ -1050,15 +1048,17 @@ export default function ActiveClassCard({ classItem, studentId, onMarkAttendance
                   <span>Time left to mark attendance:</span>
                   <span className="font-mono text-base">{formatTime(timeLeft ?? 0)}</span>
                 </div>
-                <div className="w-full bg-blue-100 rounded-full h-5 shadow-inner">
-                  <div
-                    className="h-5 rounded-full transition-all duration-500"
-                    style={{
-                      width: `${progressPercent}%`,
-                      background: 'linear-gradient(90deg, #2563eb 0%, #38bdf8 100%)',
-                      boxShadow: '0 1px 6px 0 rgba(37,99,235,0.15)'
-                    }}
-                  />
+                <div className="w-full px-2">
+                  <div className="bg-blue-100 rounded-full h-5 shadow-inner w-full overflow-hidden">
+                    <div
+                      className="h-5 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${progressPercent}%`,
+                        background: 'linear-gradient(90deg, #2563eb 0%, #38bdf8 100%)',
+                        boxShadow: '0 1px 6px 0 rgba(37,99,235,0.15)'
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             ) : (

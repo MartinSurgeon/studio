@@ -19,21 +19,20 @@ const getTabId = (): string => {
 };
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  // Create a tab-specific key
   const tabSpecificKey = `${typeof window !== 'undefined' ? getTabId() : 'server'}:${key}`;
-  
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
+  // Always use initialValue for initial render to avoid hydration mismatch
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+
+  // On mount, sync with localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     try {
       const item = window.localStorage.getItem(tabSpecificKey);
-      return item ? JSON.parse(item) : initialValue;
+      if (item) setStoredValue(JSON.parse(item));
     } catch (error) {
       console.error(`Error reading localStorage key "${tabSpecificKey}":`, error);
-      return initialValue;
     }
-  });
+  }, [tabSpecificKey]);
 
   const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
@@ -71,7 +70,6 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [tabSpecificKey, initialValue]);
-
 
   return [storedValue, setValue];
 }

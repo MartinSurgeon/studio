@@ -132,15 +132,14 @@ export default function StudentAuthPage() {
       );
       
       if (user) {
+        // Automatically log the user in after successful registration
+        setUserRole('student');
+        setStudentId(user.id);
         toast({
           title: "Registration Successful",
-          description: "Please check your email to confirm your account.",
+          description: "Welcome! Your account has been created successfully.",
         });
-        // Optionally, redirect to a confirmation page or login page
-        (document.querySelector('[data-value="login"]') as HTMLElement)?.click();
-        loginForm.setValue('indexNumber', data.indexNumber);
-        loginForm.setValue('password', data.password);
-        
+        router.push('/dashboard');
       } else {
         toast({
           title: "Registration Failed",

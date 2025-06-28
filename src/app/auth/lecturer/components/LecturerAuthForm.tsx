@@ -42,8 +42,6 @@ export function LecturerAuthForm() {
   const { setUserRole } = useAppContext();
   const [loginLoading, setLoginLoading] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
-  const [resendEmailLoading, setResendEmailLoading] = useState(false);
-  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -100,66 +98,13 @@ export function LecturerAuthForm() {
     } catch (error) {
       console.error('Login error:', error);
       
-      if (error instanceof Error && error.message.includes('Email not confirmed||')) {
-        const parts = error.message.split('||');
-        if (parts.length >= 3) {
-          const email = parts[1];
-          const message = parts[2];
-          
-          setUnconfirmedEmail(email);
-          
-          toast({
-            title: "Email Not Confirmed",
-            description: message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Login Failed",
-            description: "Please confirm your email before logging in.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Login Failed",
-          description: error instanceof Error ? error.message : "An error occurred during login",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setLoginLoading(false);
-    }
-  };
-  
-  const handleResendConfirmation = async () => {
-    if (!unconfirmedEmail) return;
-    
-    setResendEmailLoading(true);
-    try {
-      const success = await authService.resendConfirmationEmail(unconfirmedEmail);
-      
-      if (success) {
-        toast({
-          title: "Confirmation Email Sent",
-          description: `A new confirmation email has been sent to ${unconfirmedEmail}. Please check your inbox and spam folder.`,
-        });
-      } else {
-        toast({
-          title: "Failed to Resend",
-          description: "We couldn't resend the confirmation email. Please try again later.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Resend confirmation error:', error);
       toast({
-        title: "Failed to Resend",
-        description: error instanceof Error ? error.message : "An error occurred while trying to resend the confirmation email",
+        title: "Login Failed",
+        description: error instanceof Error ? error.message : "An error occurred during login",
         variant: "destructive",
       });
     } finally {
-      setResendEmailLoading(false);
+      setLoginLoading(false);
     }
   };
   
@@ -174,13 +119,13 @@ export function LecturerAuthForm() {
       );
       
       if (user) {
+        // Automatically log the user in after successful registration
+        setUserRole('lecturer');
         toast({
           title: "Registration Successful",
-          description: "Please check your email to confirm your account.",
+          description: "Welcome! Your account has been created successfully.",
         });
-        (document.querySelector('[data-value="login"]') as HTMLElement)?.click();
-        loginForm.setValue('email', data.email);
-        loginForm.setValue('password', data.password);
+        router.push('/dashboard');
       } else {
         toast({
           title: "Registration Failed",
@@ -215,6 +160,13 @@ export function LecturerAuthForm() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 dark:from-gray-800 dark:to-gray-950 sm:p-6 lg:p-8">
+      {/* New updates toast notification */}
+      <div className="w-full max-w-md mx-auto mb-4">
+        <div className="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded relative text-center shadow animate-fade-in">
+          <strong className="font-bold">New Updates!</strong>
+          <span className="block sm:inline ml-2">We've made improvements to the lecturer registration and attendance export features. Please let us know if you have feedback!</span>
+        </div>
+      </div>
       <Card className="w-full max-w-md mx-auto shadow-xl rounded-lg dark:bg-gray-850 border border-gray-200 dark:border-gray-700 transform transition-all duration-300 hover:shadow-2xl">
         <CardHeader className="text-center p-6 pb-4">
           <div className="inline-flex items-center justify-center mb-3">
@@ -443,28 +395,6 @@ export function LecturerAuthForm() {
               </form>
             </TabsContent>
           </Tabs>
-
-          {unconfirmedEmail && (
-            <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
-                Please confirm your email address to continue.
-              </p>
-              <Button
-                onClick={handleResendConfirmation}
-                disabled={resendEmailLoading}
-                className="w-full h-10 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-all duration-200"
-              >
-                {resendEmailLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Sending...
-                  </div>
-                ) : (
-                  "Resend Confirmation Email"
-                )}
-              </Button>
-            </div>
-          )}
 
           <div className="mt-6 text-center">
             <Link

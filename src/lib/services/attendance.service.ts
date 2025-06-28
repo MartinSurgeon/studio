@@ -530,9 +530,22 @@ export const attendanceService = {
       }
 
       // Determine status based on time
-      let status: 'Present' | 'Late' = 'Present';
-      if (now > classEndTime && now <= graceEndTime) {
+      let status: 'Present' | 'Late';
+      if (now >= classStartTime && now <= classEndTime) {
+        status = 'Present';
+      } else if (now > classEndTime && now <= graceEndTime) {
         status = 'Late';
+      } else {
+        return { 
+          success: false, 
+          message: 'Check-in not allowed outside class and grace period',
+          details: {
+            distance,
+            threshold,
+            withinRange: true,
+            classLocation
+          }
+        };
       }
 
       // Create attendance record

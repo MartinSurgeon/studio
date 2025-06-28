@@ -47,6 +47,25 @@ export default function AttendanceReportTable({ classInstance, records }: Attend
     fetchStudentData();
   }, [records]);
   
+  // Export handler
+  const handleExport = async () => {
+    if (!classInstance?.id) return;
+    const response = await fetch(`/api/attendance/export?classId=${classInstance.id}`);
+    if (!response.ok) {
+      alert('Failed to export attendance data.');
+      return;
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance-${classInstance.id}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+  
   if (!classInstance) {
     return <p className="text-muted-foreground">Select a class to view its report.</p>;
   }
@@ -84,6 +103,16 @@ export default function AttendanceReportTable({ classInstance, records }: Attend
 
   return (
     <div className="rounded-lg border shadow-sm overflow-hidden">
+      {/* Export Button */}
+      <div className="flex justify-end p-4">
+        <button
+          onClick={handleExport}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow transition"
+          disabled={!classInstance?.id}
+        >
+          Export Attendance (CSV)
+        </button>
+      </div>
       <Table>
         <TableCaption>
           <div className="flex flex-col items-center space-y-1">
