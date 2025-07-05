@@ -52,6 +52,7 @@ export default function StudentAuthPage() {
   const [registerLoading, setRegisterLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [tab, setTab] = useState("login");
   
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -101,7 +102,7 @@ export default function StudentAuthPage() {
       if (error instanceof Error && 
           error.message.includes('No account found with index number')) {
         // Switch to register tab and pre-fill the index number
-        (document.querySelector('[data-value="register"]') as HTMLElement)?.click();
+        setTab("register");
         registerForm.setValue('indexNumber', data.indexNumber);
         
         toast({
@@ -153,7 +154,7 @@ export default function StudentAuthPage() {
       // Switch to login tab if the user is already registered
       if (error instanceof Error && 
           error.message.includes('already registered')) {
-        (document.querySelector('[data-value="login"]') as HTMLElement)?.click();
+        setTab("login");
         loginForm.setValue('indexNumber', data.indexNumber);
         loginForm.setValue('password', data.password);
         
@@ -175,264 +176,295 @@ export default function StudentAuthPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 dark:from-gray-800 dark:to-gray-950 sm:p-6 lg:p-8">
-      <Card className="w-full max-w-md mx-auto shadow-xl rounded-lg dark:bg-gray-850 border border-gray-200 dark:border-gray-700">
-        <CardHeader className="text-center p-6 pb-4">
-          <div className="inline-flex items-center justify-center mb-3">
-            <User className="h-10 w-10 text-blue-600 dark:text-blue-400 mr-3 animate-fade-in" />
-            <CardTitle className="text-4xl font-extrabold text-gray-900 dark:text-gray-50">Student Portal</CardTitle>
+    <div className="relative min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-950 p-0">
+      {/* Mobile background video */}
+      <video
+        src="/icons/male%20student%20running.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="fixed inset-0 w-full h-full object-cover z-0 block md:hidden blur-sm brightness-50"
+        aria-label="Male student running animation background"
+      />
+      {/* Desktop side video */}
+      <div className="hidden md:flex w-1/2 h-screen items-center justify-center bg-transparent">
+        <video
+          src="/icons/male%20student%20running.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover rounded-none"
+          aria-label="Male student running animation"
+        />
+      </div>
+      {/* Auth form section (overlay on mobile, right side on desktop) */}
+      <div className="relative z-10 w-full md:w-1/2 flex flex-col items-center justify-center min-h-screen bg-white/90 dark:bg-gray-900/80 md:bg-transparent md:dark:bg-transparent p-4 md:p-0">
+        <div className="max-w-md w-full mx-auto">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-300">Together, We Make Every Class Count!</h2>
+            <p className="text-md text-gray-700 dark:text-gray-300 mt-1">Your presence and participation help build a stronger learning community.</p>
           </div>
-          <CardDescription className="text-md text-gray-700 dark:text-gray-400 mt-2">
-            Login with your student ID or create a new account to get started with Trakzy.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6 pt-0">
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6 h-12 text-lg">
-              <TabsTrigger value="login" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200">Login</TabsTrigger>
-              <TabsTrigger value="register" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200">Register</TabsTrigger>
-            </TabsList>
-            
-            {/* Login Form */}
-            <TabsContent value="login" className="space-y-6">
-              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="login-index-number" className="text-base font-medium text-gray-800 dark:text-gray-200">Student ID (Index Number)</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
-                    <Input
-                      id="login-index-number"
-                      placeholder="e.g., 12345678"
-                      className="pl-10 pr-4 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      {...loginForm.register("indexNumber")}
-                    />
-                  </div>
-                  {loginForm.formState.errors.indexNumber && (
-                    <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
-                      <AlertCircle className="h-4 w-4" />
-                      {loginForm.formState.errors.indexNumber.message}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Enter your numeric student ID (e.g., 22000000).
-                  </p>
-                </div>
+          <Card className="w-full shadow-xl rounded-lg dark:bg-gray-850 border border-gray-200 dark:border-gray-700">
+            <CardHeader className="text-center p-6 pb-4">
+              <div className="inline-flex items-center justify-center mb-3">
+                <User className="h-10 w-10 text-blue-600 dark:text-blue-400 mr-3 animate-fade-in" />
+                <CardTitle className="text-4xl font-extrabold text-gray-900 dark:text-gray-50">Student Portal</CardTitle>
+              </div>
+              <CardDescription className="text-md text-gray-700 dark:text-gray-400 mt-2">
+                Login with your student ID or create a new account to get started with Trakzy.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <Tabs value={tab} onValueChange={setTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6 h-12 text-lg">
+                  <TabsTrigger value="login" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200">Login</TabsTrigger>
+                  <TabsTrigger value="register" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200">Register</TabsTrigger>
+                </TabsList>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="login-password" className="text-base font-medium text-gray-800 dark:text-gray-200">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
-                    <Input
-                      id="login-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      className="pl-10 pr-10 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      {...loginForm.register("password")}
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                {/* Login Form */}
+                <TabsContent value="login" className="space-y-6">
+                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-index-number" className="text-base font-medium text-gray-800 dark:text-gray-200">Student ID (Index Number)</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        <Input
+                          id="login-index-number"
+                          placeholder="e.g., 12345678"
+                          className="pl-10 pr-4 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          {...loginForm.register("indexNumber")}
+                        />
+                      </div>
+                      {loginForm.formState.errors.indexNumber && (
+                        <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
+                          <AlertCircle className="h-4 w-4" />
+                          {loginForm.formState.errors.indexNumber.message}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Enter your numeric student ID (e.g., 22000000).
+                      </p>
                     </div>
-                  </div>
-                  {loginForm.formState.errors.password && (
-                    <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
-                      <AlertCircle className="h-4 w-4" />
-                      {loginForm.formState.errors.password.message}
-                    </p>
-                  )}
-                </div>
-                
-                <Button
-                  type="submit"
-                  className="w-full mt-8 py-2 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200"
-                  disabled={loginLoading}
-                >
-                  {loginLoading ? (
-                    <span className="flex items-center justify-center">
-                      <svg className="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Logging in...
-                    </span>
-                  ) : (
-                    "Login"
-                  )}
-                </Button>
-                
-                <div className="text-center mt-6">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Don't have an account?{" "}
-                    <a 
-                      onClick={() => (document.querySelector('[data-value="register"]') as HTMLElement)?.click()} 
-                      className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500 font-medium cursor-pointer transition-colors duration-200"
-                    >
-                      Register Here
-                    </a>
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                    <Link href="/auth/forgot-password"
-                      className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500 font-medium transition-colors duration-200"
-                    >
-                      Forgot Password?
-                    </Link>
-                  </p>
-                </div>
-              </form>
-            </TabsContent>
-            <div className="mt-6 text-center">
-              <Link
-                href="/"
-                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-              >
-                ← Back to Role Selection
-              </Link>
-            </div>
-            {/* Register Form */}
-            <TabsContent value="register" className="space-y-6">
-              <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="register-index-number" className="text-base font-medium text-gray-800 dark:text-gray-200">Student ID (Index Number)</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
-                    <Input
-                      id="register-index-number"
-                      placeholder="e.g., 12345678"
-                      className="pl-10 pr-4 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      {...registerForm.register("indexNumber")}
-                    />
-                  </div>
-                  {registerForm.formState.errors.indexNumber && (
-                    <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
-                      <AlertCircle className="h-4 w-4" />
-                      {registerForm.formState.errors.indexNumber.message}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Enter your numeric student ID (e.g., 22000000).
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="register-display-name" className="text-base font-medium text-gray-800 dark:text-gray-200">Display Name</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
-                    <Input
-                      id="register-display-name"
-                      placeholder="e.g., John Doe"
-                      className="pl-10 pr-4 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      {...registerForm.register("displayName")}
-                    />
-                  </div>
-                  {registerForm.formState.errors.displayName && (
-                    <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
-                      <AlertCircle className="h-4 w-4" />
-                      {registerForm.formState.errors.displayName.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="register-email" className="text-base font-medium text-gray-800 dark:text-gray-200">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
-                    <Input
-                      id="register-email"
-                      type="email"
-                      placeholder="e.g., example@email.com"
-                      className="pl-10 pr-4 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      {...registerForm.register("email")}
-                    />
-                  </div>
-                  {registerForm.formState.errors.email && (
-                    <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
-                      <AlertCircle className="h-4 w-4" />
-                      {registerForm.formState.errors.email.message}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="register-password" className="text-base font-medium text-gray-800 dark:text-gray-200">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
-                    <Input
-                      id="register-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Create a password"
-                      className="pl-10 pr-10 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      {...registerForm.register("password")}
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password" className="text-base font-medium text-gray-800 dark:text-gray-200">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        <Input
+                          id="login-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter your password"
+                          className="pl-10 pr-10 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          {...loginForm.register("password")}
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </div>
+                      </div>
+                      {loginForm.formState.errors.password && (
+                        <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
+                          <AlertCircle className="h-4 w-4" />
+                          {loginForm.formState.errors.password.message}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                  {registerForm.formState.errors.password && (
-                    <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
-                      <AlertCircle className="h-4 w-4" />
-                      {registerForm.formState.errors.password.message}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="register-confirm-password" className="text-base font-medium text-gray-800 dark:text-gray-200">Confirm Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
-                    <Input
-                      id="register-confirm-password"
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="Confirm your password"
-                      className="pl-10 pr-10 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      {...registerForm.register("confirmPassword")}
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </div>
-                  </div>
-                  {registerForm.formState.errors.confirmPassword && (
-                    <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
-                      <AlertCircle className="h-4 w-4" />
-                      {registerForm.formState.errors.confirmPassword.message}
-                    </p>
-                  )}
-                </div>
-                
-                <Button
-                  type="submit"
-                  className="w-full mt-8 py-2 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200"
-                  disabled={registerLoading}
-                >
-                  {registerLoading ? (
-                    <span className="flex items-center justify-center">
-                      <svg className="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Registering...
-                    </span>
-                  ) : (
-                    "Register Account"
-                  )}
-                </Button>
-
-                <div className="text-center mt-6">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Already have an account?{" "}
-                    <a 
-                      onClick={() => (document.querySelector('[data-value="login"]') as HTMLElement)?.click()} 
-                      className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500 font-medium cursor-pointer transition-colors duration-200"
+                    
+                    <Button
+                      type="submit"
+                      className="w-full mt-8 py-2 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200"
+                      disabled={loginLoading}
                     >
-                      Login Here
-                    </a>
-                  </p>
+                      {loginLoading ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Logging in...
+                        </span>
+                      ) : (
+                        "Login"
+                      )}
+                    </Button>
+                    
+                    <div className="text-center mt-6">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Don't have an account?{" "}
+                        <a
+                          onClick={() => setTab("register")}
+                          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500 font-medium cursor-pointer transition-colors duration-200"
+                        >
+                          Register Here
+                        </a>
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                        <Link href="/auth/forgot-password"
+                          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500 font-medium transition-colors duration-200"
+                        >
+                          Forgot Password?
+                        </Link>
+                      </p>
+                    </div>
+                  </form>
+                </TabsContent>
+                <div className="mt-6 text-center">
+                  <Link
+                    href="/"
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                  >
+                    ← Back to Role Selection
+                  </Link>
                 </div>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-      <div className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400 opacity-90">
-        <p>&copy; {new Date().getFullYear()} Trakzy. All rights reserved.</p>
+                {/* Register Form */}
+                <TabsContent value="register" className="space-y-6">
+                  <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="register-index-number" className="text-base font-medium text-gray-800 dark:text-gray-200">Student ID (Index Number)</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        <Input
+                          id="register-index-number"
+                          placeholder="e.g., 12345678"
+                          className="pl-10 pr-4 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          {...registerForm.register("indexNumber")}
+                        />
+                      </div>
+                      {registerForm.formState.errors.indexNumber && (
+                        <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
+                          <AlertCircle className="h-4 w-4" />
+                          {registerForm.formState.errors.indexNumber.message}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Enter your numeric student ID (e.g., 22000000).
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="register-display-name" className="text-base font-medium text-gray-800 dark:text-gray-200">Display Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        <Input
+                          id="register-display-name"
+                          placeholder="e.g., John Doe"
+                          className="pl-10 pr-4 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          {...registerForm.register("displayName")}
+                        />
+                      </div>
+                      {registerForm.formState.errors.displayName && (
+                        <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
+                          <AlertCircle className="h-4 w-4" />
+                          {registerForm.formState.errors.displayName.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="register-email" className="text-base font-medium text-gray-800 dark:text-gray-200">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        <Input
+                          id="register-email"
+                          type="email"
+                          placeholder="e.g., example@email.com"
+                          className="pl-10 pr-4 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          {...registerForm.register("email")}
+                        />
+                      </div>
+                      {registerForm.formState.errors.email && (
+                        <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
+                          <AlertCircle className="h-4 w-4" />
+                          {registerForm.formState.errors.email.message}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="register-password" className="text-base font-medium text-gray-800 dark:text-gray-200">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        <Input
+                          id="register-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Create a password"
+                          className="pl-10 pr-10 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          {...registerForm.register("password")}
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </div>
+                      </div>
+                      {registerForm.formState.errors.password && (
+                        <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
+                          <AlertCircle className="h-4 w-4" />
+                          {registerForm.formState.errors.password.message}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="register-confirm-password" className="text-base font-medium text-gray-800 dark:text-gray-200">Confirm Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        <Input
+                          id="register-confirm-password"
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Confirm your password"
+                          className="pl-10 pr-10 py-2 text-base rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          {...registerForm.register("confirmPassword")}
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                          {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </div>
+                      </div>
+                      {registerForm.formState.errors.confirmPassword && (
+                        <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-fade-in">
+                          <AlertCircle className="h-4 w-4" />
+                          {registerForm.formState.errors.confirmPassword.message}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <Button
+                      type="submit"
+                      className="w-full mt-8 py-2 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200"
+                      disabled={registerLoading}
+                    >
+                      {registerLoading ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Registering...
+                        </span>
+                      ) : (
+                        "Register Account"
+                      )}
+                    </Button>
+
+                    <div className="text-center mt-6">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Already have an account?{" "}
+                        <a
+                          onClick={() => setTab("login")}
+                          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500 font-medium cursor-pointer transition-colors duration-200"
+                        >
+                          Login Here
+                        </a>
+                      </p>
+                    </div>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+          <div className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400 opacity-90">
+            <p>&copy; {new Date().getFullYear()} Trakzy. All rights reserved.</p>
+          </div>
+        </div>
       </div>
     </div>
   );

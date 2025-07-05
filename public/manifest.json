@@ -1,7 +1,7 @@
 {
-  "name": "GeoAttend",
-  "short_name": "GeoAttend",
-  "description": "Smart attendance tracking system with location verification",
+  "name": "Trakzy",
+  "short_name": "Trakzy",
+  "description": "Trakzy: Smart attendance tracking system with location verification",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

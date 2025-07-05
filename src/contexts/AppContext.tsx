@@ -53,7 +53,7 @@ const clearAppState = () => {
     studentId: null,
     classes: [],
     attendanceRecords: [],
-    testingMode: process.env.NODE_ENV === 'development'
+    testingMode: false
   };
 };
 
@@ -159,7 +159,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [studentId, setStudentId] = useLocalStorage<string | null>('geoattend-studentId', null);
   const [classes, setClasses] = useLocalStorage<Class[]>('geoattend-classes', []);
   const [attendanceRecords, setAttendanceRecords] = useLocalStorage<AttendanceRecord[]>('geoattend-attendance', []);
-  const [testingMode, setTestingMode] = useLocalStorage<boolean>('geoattend-testingMode', process.env.NODE_ENV === 'development');
+  const [testingMode, setTestingMode] = useLocalStorage<boolean>('geoattend-testingMode', false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<UserData | null>(null);

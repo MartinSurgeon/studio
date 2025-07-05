@@ -103,7 +103,7 @@ export default function Header() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <MapPinIcon className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-bold text-primary">GeoAttend</h1>
+          <h1 className="text-2xl font-bold text-primary">Trakzy</h1>
         </div>
         
         <div className="flex items-center gap-4">
@@ -118,7 +118,7 @@ export default function Header() {
             </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="max-w-xs">Multiple GeoAttend tabs detected. Each tab has its own session. We recommend using only one tab at a time to avoid confusion.</p>
+                  <p className="max-w-xs">Multiple Trakzy tabs detected. Each tab has its own session. We recommend using only one tab at a time to avoid confusion.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
